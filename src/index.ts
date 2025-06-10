@@ -19,10 +19,8 @@ client.on('ready', () => {
 client.on('messageCreate', message => {
     if (message.content === '!ping') {
         message.channel.send('Pong!');
-    } else if (message.content === '!hello') {
-        message.channel.send(`Hello, ${message.author.username}!`);
     } else if (message.content === '!help') {
-        message.channel.send('Available commands: !ping, !hello, !regra X');
+        message.channel.send('Comandos disponíveis: !ping, !regra X');
     } else if (message.content.toLowerCase().startsWith('!regra ')) {
         const numero = message.content.split(' ')[1];
         const regras = [
@@ -54,6 +52,87 @@ client.on('messageCreate', message => {
             message.channel.send({ embeds: [embed] });
         } else {
             message.channel.send('Por favor, informe um número de 1 a 18. Exemplo: !regra 3');
+        }
+    } else if (message.content === '!subhora') {
+        message.channel.send('Comandos disponíveis: !ping, !regra X');
+    } else if (message.content === '!sub40') {
+        message.channel.send('Comandos disponíveis: !ping, !regra X');
+    } else if (message.content === '!sub30') {
+        message.channel.send('Comandos disponíveis: !ping, !regra X');
+    } else if (message.content === '!girias') {
+        message.channel.send('Comandos disponíveis: !ping, !regra X');
+    }
+});
+
+// Armazena comandos customizados temporariamente (memória RAM)
+const customCommands: {
+    [key: string]: { response?: string; embed?: { title: string; description: string; color: number } }
+} = {};
+
+// Função para verificar se o usuário tem cargo de moderador
+function isModerator(member) {
+    return member.roles.cache.some(role =>
+        ['moderador', 'moderator', 'mod'].includes(role.name.toLowerCase())
+    );
+}
+
+client.on('messageCreate', async message => {
+    // Comando para criar comandos customizados (apenas moderadores)
+    if (message.content.startsWith('!criarcomando ')) {
+        if (!isModerator(message.member)) {
+            message.channel.send('Apenas moderadores podem criar comandos.');
+            return;
+        }
+
+        // Sintaxe: !criarcomando nome resposta
+        // Ou: !criarcomando nome embed "Título" "Descrição" #RRGGBB
+        const args = message.content.slice('!criarcomando '.length).trim().split(' ');
+        const commandName = args.shift();
+        if (!commandName) {
+            message.channel.send('Uso: !criarcomando nome resposta\nOu: !criarcomando nome embed "Título" "Descrição" #RRGGBB');
+            return;
+        }
+
+        if (args[0] === 'embed') {
+            // Exemplo: !criarcomando aviso embed "Título" "Descrição" #FF0000
+            const match = message.content.match(/!criarcomando\s+(\S+)\s+embed\s+"([^"]+)"\s+"([^"]+)"\s+(#[0-9a-fA-F]{6})/);
+            if (!match) {
+                message.channel.send('Uso: !criarcomando nome embed "Título" "Descrição" #RRGGBB');
+                return;
+            }
+            const [, , title, description, colorHex] = match;
+            const color = parseInt(colorHex.replace('#', ''), 16);
+            customCommands[commandName] = {
+                embed: { title, description, color }
+            };
+            message.channel.send(`Comando embed !${commandName} criado com sucesso!`);
+        } else {
+            // Comando simples de texto
+            const commandResponse = args.join(' ');
+            if (!commandResponse) {
+                message.channel.send('Uso: !criarcomando nome resposta');
+                return;
+            }
+            customCommands[commandName] = { response: commandResponse };
+            message.channel.send(`Comando !${commandName} criado com sucesso!`);
+        }
+        return;
+    }
+
+    // Executa comandos customizados
+    if (message.content.startsWith('!')) {
+        const cmd = message.content.slice(1).split(' ')[0];
+        if (customCommands[cmd]) {
+            if (customCommands[cmd].embed) {
+                const { title, description, color } = customCommands[cmd].embed!;
+                const embed = new EmbedBuilder()
+                    .setTitle(title)
+                    .setDescription(description)
+                    .setColor(color);
+                message.channel.send({ embeds: [embed] });
+            } else if (customCommands[cmd].response) {
+                message.channel.send(customCommands[cmd].response!);
+            }
         }
     }
 });
