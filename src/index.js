@@ -1,5 +1,5 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
-const { token } = require('./config.json');
+const { token } = require('../config.json');
 
 // Atualize os intents para permitir leitura de mensagens
 const client = new Client({
