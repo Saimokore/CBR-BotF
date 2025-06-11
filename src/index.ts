@@ -213,7 +213,7 @@ client.on('messageCreate', async message => {
       return message.channel.send('Nenhum comando customizado criado ainda.');
     }
     const lista = cmds.map(c => `!${c}`).join(', ');
-    return message.channel.send(`📘 Comandos customizados: ${lista}`);
+    return message.channel.send(`📘 Comandos: ${lista}`);
   }
 
   // Fluxos que aguardam mensagens do usuário (apenas para admin)
