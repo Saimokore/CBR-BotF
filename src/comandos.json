@@ -1,7 +1,27 @@
 {
-  "jacare": {
-    "mensagem": "mmmmmmmmmmmmmmmmensagemmmmmmmm",
+  "respeito": {
+    "mensagem": "<@689944939982749710> acao",
     "embed": false,
     "cor": "#0099ff"
+  },
+  "regra 1": {
+    "mensagem": "# Nova Mensagem, inserindo uma nova mensagem para criar",
+    "embed": false,
+    "cor": "#0099ff"
+  },
+  "comando2": {
+    "mensagem": "# Nova mensagem para o Comando\ntestando essa função <@1381715684752363560>",
+    "embed": false,
+    "cor": "#0099ff"
+  },
+  "comando teste2": {
+    "mensagem": "nova mensagem do comando teste 2",
+    "embed": true,
+    "cor": "#0099ff"
+  },
+  "vinagre": {
+    "mensagem": "<@566589935960719380>",
+    "embed": false,
+    "cor": "#FF0000"
   }
 }
