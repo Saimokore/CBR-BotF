@@ -1,27 +1,132 @@
 {
-  "respeito": {
-    "mensagem": "<@689944939982749710> acao",
-    "embed": false,
-    "cor": "#0099ff"
-  },
   "regra 1": {
-    "mensagem": "# Nova Mensagem, inserindo uma nova mensagem para criar",
-    "embed": false,
-    "cor": "#0099ff"
-  },
-  "comando2": {
-    "mensagem": "# Nova mensagem para o Comando\ntestando essa função <@1381715684752363560>",
-    "embed": false,
-    "cor": "#0099ff"
-  },
-  "comando teste2": {
-    "mensagem": "nova mensagem do comando teste 2",
+    "mensagem": "## Regra 1  \n### Respeito com os membros\n- Tenha respeito com todos os membros do servidor, da mesma forma como gostaria que lhe tratassem. Isso inclui respeito à equipe e ADMs do server.",
     "embed": true,
+    "cor": "#8bfa82"
+  },
+  "regra 2": {
+    "mensagem": "## Regra 2  \n### Preconceitos de qualquer tipo não serão tolerados\n- Qualquer uso de agressividade, desrespeito ou má fé nesse servidor **NÃO SÃO TOLERADOS**. Atenha-se ao uso correto de pronomes, identidade de gênero, idade, etnia, preferências, gostos pessoais etc.\n  - Isso inclui qualquer conteúdo desrespeitoso, preconceituoso, transfóbico, inapropriado ou ofensivo na seção de pronomes, foto de perfil, nome de usuário e conteúdo da bio de qualquer pessoa. Tentativas de apelo ao ban também não serão aceitas.",
+    "embed": true,
+    "cor": "#8bfa82"
+  },
+  "regra 3": {
+    "mensagem": "## Regra 3  \n### Evite assuntos polêmicos, desnecessários e inapropriados\n- Sem conteúdo +18, gore, NSFW, NSFL, ou assuntos políticos, polarizantes ou polêmicos. Veja que assuntos delicados relacionados a Celeste ainda são permitidos, tais como identidade de gênero ou ansidedade/depressão, mas tenha respeito ao lidar com tais assuntos.",
+    "embed": true,
+    "cor": "#8bfa82"
+  },
+  "regra 4": {
+    "mensagem": "## Regra 4  \n### Mantenha o propósito dos chats\n- Atenha-se ao propósito de cada um do chats do servidor e de seu respectivo chat. As descrições do canal contém seu propósito. Para assuntos não-relacionados a celeste, dirija-se ao <#754394890108010537>.",
+    "embed": true,
+    "cor": "#8bfa82"
+  },
+  "regra 5": {
+    "mensagem": "## Regra 5  \n### Proibido spam\n- Não polua os canais do servidor com conteúdo repetitivo e/ou de baixa qualidade. Caso queira postar memes, faça-o no <#754394890108010537> e em pouca frequência.",
+    "embed": true,
+    "cor": "#8bfa82"
+  },
+  "regra 6": {
+    "mensagem": "## Regra 6  \n### Divulgação no <#756240984064655450> \n- Apenas divulgue seus canais e projetos no canal <#756240984064655450>. Ele tem preferência a divulgação relacionado a Celeste, mas também suporta divulgações externas, a depender de seu conteúdo. Não spamme divulgação não-relacionado excessivas vezes.",
+    "embed": true,
+    "cor": "#8bfa82"
+  },
+  "regra 7": {
+    "mensagem": "## Regra 7  \n### Evite o uso de *alts*\n- Contas alternativas podem ocasionalmente serem úteis ou necessárias, especialmente como microfones na ausência de equipamento apropriado. Mas é mandatório informar aos moderadores que a sua conta é alternativa, a quem ela pertence, e qual o seu propósito. Aqueles que não informarem serão removidos. Considerem também que punições à conta principal aplicam **igualmente** às contas alternativas, e vice-versa.",
+    "embed": true,
+    "cor": "#8bfa82"
+  },
+  "regra 8": {
+    "mensagem": "## Regra 8  \n### Proibido personificação\n- Se passar por outras pessoas (sendo elas ou não jogadoras de Celeste ou membros desta comunidade) é proibido, assim como personificações de qualquer espécie ou tentativas intencionais e injustificáveis de ocultar a própria identidade. Fingir ser inexperiente ou ter entrado recentemente no server não será tolerado. Brincadeiras envolvendo se passar por outras pessoas ou fazer roleplay também não serão toleradas.",
+    "embed": true,
+    "cor": "#8bfa82"
+  },
+  "regra 9": {
+    "mensagem": "## Regra 9  \n### Não seja extremamente negativo ou expositivo\n- Não seja extremamente negativo. O servidor de Celeste não é um local apropriado para *venting* ou exposição exagerada.\n- Caso tenha ideações ou intenções suicidas, procure o Centro de Assistência Psicossocial mais próximo de você, ou entre em contato com o CVV mais próximo de você, através [deste site](<http://www.suicide.org/hotlines/international/brazil-suicide-hotlines.html>) ou as [alternativas internacionais](<http://www.suicide.org/suicide-hotlines.html>).",
+    "embed": true,
+    "cor": "#8bfa82"
+  },
+  "regra 10": {
+    "mensagem": "## Regra 10  \n### Proibido menores de idade ligarem suas câmeras ou se exporem\n-  Não toleramos que jovens com menos de 18 anos que se exponham de qualquer forma visando sua segurança. Jamais se exponham na internet.",
+    "embed": true,
+    "cor": "#8bfa82"
+  },
+  "regra 11": {
+    "mensagem": "## Regra 11  \n### Jamais rebaixe, pressione ou desqualifique as conquistas de terceiros\n- Tal como sugere o título, não desmereça a conquista de ninguém. Sempre procure incentivar e parabenizar o melhor dos outros sem crítica ou pressão. Evite comentários como \"achei o tempo ruim\"; \"agora pegue golden de X\"; \"quando vai sair o SUB X?\", etc.",
+    "embed": true,
+    "cor": "#8bfa82"
+  },
+  "regra 12": {
+    "mensagem": "## Regra 12  \n### Idioma\n- A Celeste Brasil utiliza o português como a língua oficial, e, embora sejamos tolerantes ao uso de outras línguas; não insista em conversar em outras línguas ou engaje em conversas utilizando códigos, línguas, ou sistemas de comunicação estranhas. Falar em línguas não-identificáveis dificulta a moderação e deve ser evitado sempre que possível.",
+    "embed": true,
+    "cor": "#8bfa82"
+  },
+  "regra 13": {
+    "mensagem": "## Regra 13  \n### Uso de materiais, arte ou créditos\n- Toda vez que for postar material externo ao servidor, como artes, livros, séries e obras em geral, **sempre** credite o artista por trás e nunca compartilhe material sem a expressa autorização do criador. Não toleramos uso de artes geradas por Inteligência Artificial.\n - Caso for gravar qualquer material dentro do server, peça a autorização e consentimento expresso de TODOS os participantes presentes ou envolvidos a qualquer momento da gravação. Se estiver gravando uma chamada, utilize o status da chamada e altere-a para \"GRAVANDO 🔴\" ou qualquer status similar.",
+    "embed": true,
+    "cor": "#8bfa82"
+  },
+  "regra 14": {
+    "mensagem": "## Regra 14  \n### Respeito à equipe\n- Você possui todo o direito de discordar das ações dos administradores do servidor, mas entenda que os Administradores são pessoas como você, também tem sentimentos, e trabalham intensamente para manter a comunidade. Caso tenha questões com a equipe ou com um em específico, converse conosco pela DM ou abra um ticket expressando sua preocupação.\n- Pingar a role @admin sem a expressa razão de chamar a atenção dos moderadores pra algo urgente ou necessário resultará em um Timeout de 7 dias. Ofensas repetidas ou pings feitos em consequência de \"brincadeiras\" ou outras motivações fúteis estarão sujeitos a punições maiores e Avisos Oficiais.\n- Bloquear administradores do servidor não será tolerado. Isso impossibilita a comunicação sobre assuntos relativos ao servidor e dificulta nosso trabalho de moderação.",
+    "embed": true,
+    "cor": "#8bfa82"
+  },
+  "regra 15": {
+    "mensagem": "## Regra 15  \n### Conformidade aos Termos de Serviço\n- Nós agimos em conformidade aos [Termos de Serviço do Discord](https://discord.com/terms). Usuários encontrados em flagrante violação ao TOS serão prontamente removidos do servidor.",
+    "embed": true,
+    "cor": "#8bfa82"
+  },
+  "regra 16": {
+    "mensagem": "## Regra 16  \n### Sugestões ao servidor\n- Caso você tenha sugestões ao servidor, pingue um dos ADMs informando sua ideia que observaremos com calma discutiremos entre a equipe para avaliar a mudança. Não pressione ou faça as mesmas sugestões várias vezes.",
+    "embed": true,
+    "cor": "#8bfa82"
+  },
+  "regra 17": {
+    "mensagem": "## Regra 17  \n### Apelo à pena\n- Você pode apelar sua pena entrando em contato com qualquer um dos administradores. Caso a decisão tenha sido tomada, ela é final.",
+    "embed": true,
+    "cor": "#8bfa82"
+  },
+  "regra 18": {
+    "mensagem": "## Regra 18  \n### Denúncias\n- Você pode denunciar quaisquer comportamentos ou ações desse servidor que agrediram a você ou a um colega abrindo um ticket pelo botão abaixo. Você pode também anonimamente entrar em contato conosco [por esse link](https://dyno.gg/form/54359920).\n - Abusos flagrantes das ferramentas de comunicação com os mods, como uso para trotes, brincadeiras, spam, ou assédio de qualquer espécie, estarão sujeitos a punições. A comunicação com os moderadores através dos tickets e do formulário anônimo deve respeitar todas as regras do servidor.",
+    "embed": true,
+    "cor": "#8bfa82"
+  },
+  "subhora": {
+    "mensagem": "https://youtu.be/-GEzgmfLnjc?si=mX6VnmvNDCPoVJOH",
+    "embed": false,
     "cor": "#0099ff"
   },
-  "vinagre": {
-    "mensagem": "<@566589935960719380>",
+  "sub40": {
+    "mensagem": "https://youtu.be/pmw7GrFk_9s?si=AmmgWqeMjGXdfEyT",
     "embed": false,
-    "cor": "#FF0000"
+    "cor": "#0099ff"
+  },
+  "sub30": {
+    "mensagem": "https://www.youtube.com/playlist?list=PLIe2h8Mqh4zKzAg087_-9RTCAOuvJm-1W",
+    "embed": false,
+    "cor": "#0099ff"
+  },
+  "girias": {
+    "mensagem": "## GÍRIAS CELESTE BRASIL™️\n**pb **= Personal Best (Melhor Tempo)\n**strats **= Estratégias (Estratégias para passar de alguma parte, normalmente rápidamente)\n**wr **= World Record (Recorde Mundial)\n**il **= Individual Level (Level individual)\n**1a** = Capítulo 1 lado A, e segue o modelo 1b = Capítulo 1 lado B, 1c = Capítulo 1 lado C\n**vanilla **= Jogo normal, sem mods\n**lb**= Leaderboard, uma tabela com os tempos dos jogadores\n**everest/olympus** =  Celeste modificado, Launcher de mods\n**sob **= Sum of Best (Soma dos melhores tempos)\n**skip **= Pular alguma parte do jogo ou passar sem fazê-la\n**bopar **= Conseguir um tempo ou uma conquista melhor que outra pessoa que estava previamente a sua frente\n**gl **= Good Luck (Boa sorte), normalmente escrevem \"glgl\"\n**walljump **= Pulo na parede\n**bubsdrop **= Strat do 5b que skipa(pula) uma parte\n**sub XX** = Menor que tal tempo, exemplo: sub 30 (menos que 30 minutos ou 30 segundos, depende do contexto)\nsaimo = lindo e sempre certo\n**any%** = Categoria de zerar o jogo com qualquer %\n**100%** = Categoria de zerar o jogo 100%\n**assist **= Modo de Assistência do Celeste (Assist Mode)\n**arb **= All Red Berries (Todos os morangos vermelhos)\n**checkpoint **= Os capítulos são dividos em checkpoints (cp)\n**splits **= Segmentos do Livesplit (Aplicativo que cronometra o tempo para Speedruns)\n**free **= Para dizer que algo é fácil de se fazer (grátis), normalmente usada ironicamente em strats difíceis\n**fc (Full Clear)** = Completar um capítulo com tudo em uma run só (Bandeira Dourada)\n**chapter ou ch** = Capítulo\n**pace** = Alguém estar em ritmo de um **PB**\n**demodash ou demo** = Dash agachado\n**deathless **= Sem mortes\n**awake **= Checkpoint final do capítulo 2\n**TAS **= Tool Assisted Speedrun (Run feita com inputs pré configurados)\n**sc **= Spring Collab (Mod com Vários mapas feitos por várias pessoas)\n**sj **= Strawberry Jam Collab (Mod com Vários mapas feitos por várias pessoas)",
+    "embed": true,
+    "cor": "#4F5FE5"
+  },
+  "redes": {
+    "mensagem": "**Nossas redes sociais:** https://linktr.ee/celestebrasil",
+    "embed": false,
+    "cor": "#0099ff"
+  },
+  "cobrasil": {
+    "mensagem": "A CoBrasil é uma Colaboração Brasileira de Mods criado pela comunidade brasileira semelhante a projetos internacionais, como a Spring Collab 2020 e a Strawberry Jam 2022! Já somos mais de 30 mapas existentes nesse projeto! Aceitamos mappers, playtesters, músicos, artistas, decoradores, coders e todo mundo!! Quaisquer dúvidas, o chat <#1191506197782724648> tem mais informações, ou também fique à vontade para pingar o cargo <@&1066877422689079357> caso haja QUALQUER dúvida! Te esperamos lá!",
+    "embed": false,
+    "cor": "#0099ff"
+  },
+  "tag": {
+    "mensagem": "https://cdn.discordapp.com/attachments/853799131171520522/1382346719861407755/image.png?ex=684ad234&is=684980b4&hm=b49adc43f7f45b40367371a79995d614eae10bd415068d5448676486467eed22&",
+    "embed": false,
+    "cor": "#0099ff"
+  },
+  "verver": {
+    "mensagem": "https://cdn.discordapp.com/attachments/853799131171520522/1382350489202589736/image.png?ex=684ad5b7&is=68498437&hm=74c025fc3b40a5c4e21483828de112be341351e72fed5219dc380eab67620aed&",
+    "embed": false,
+    "cor": "#0099ff"
   }
 }

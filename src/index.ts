@@ -1,5 +1,5 @@
-const { 
-  Client, GatewayIntentBits, EmbedBuilder, Events, PermissionFlagsBits, MessageFlags,
+const {
+  Client, GatewayIntentBits, EmbedBuilder, Events, PermissionFlagsBits,
   SlashCommandBuilder, REST, Routes, ChannelType
 } = require('discord.js');
 const { token, clientId, guildId } = require('./config.json');
@@ -23,12 +23,11 @@ const client = new Client({
   ]
 });
 
-// Estados temporários para fluxos de criação, edição, mensagem, edição mensagem
 const estados = {
-  criandoComando: new Map(),      // userId => { nomeComando, usarEmbed, cor, channelId }
-  editandoComando: new Map(),     // userId => nomeComando
-  enviandoMensagem: new Map(),    // userId => { canalId }
-  editandoMensagem: new Map(),    // userId => { canalId, mensagemId }
+  criandoComando: new Map(),
+  editandoComando: new Map(),
+  enviandoMensagem: new Map(),
+  editandoMensagem: new Map(),
 };
 
 async function registrarComandos() {
@@ -37,251 +36,296 @@ async function registrarComandos() {
       .setName('criarcomando')
       .setDescription('Cria um comando personalizado')
       .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-      .addStringOption(opt => opt.setName('nome').setDescription('Nome do comando (sem "!")').setRequired(true))
+      .addStringOption(opt => opt.setName('nome').setDescription('Nome do comando').setRequired(true))
       .addBooleanOption(opt => opt.setName('usar_embed').setDescription('Usar embed?').setRequired(true))
-      .addStringOption(opt => opt.setName('cor').setDescription('Cor do embed (hex) - opcional').setRequired(false)),
+      .addStringOption(opt => opt.setName('cor').setDescription('Cor do embed (hex)').setRequired(false)),
 
     new SlashCommandBuilder()
       .setName('editarcomando')
-      .setDescription('Editar mensagem de um comando personalizado')
+      .setDescription('Editar comando')
       .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-      .addStringOption(opt => opt.setName('nome').setDescription('Nome do comando para editar').setRequired(true)),
+      .addStringOption(opt => opt.setName('nome').setDescription('Nome do comando').setRequired(true)),
 
     new SlashCommandBuilder()
       .setName('deletarcomando')
-      .setDescription('Deletar um comando personalizado')
+      .setDescription('Deleta comando')
       .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-      .addStringOption(opt => opt.setName('nome').setDescription('Nome do comando para deletar').setRequired(true)),
+      .addStringOption(opt => opt.setName('nome').setDescription('Nome do comando').setRequired(true)),
 
     new SlashCommandBuilder()
       .setName('mensagem')
-      .setDescription('Fazer o bot enviar uma mensagem em um canal')
+      .setDescription('Envia mensagem do bot')
       .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-      .addChannelOption(opt => opt.setName('canal').setDescription('Canal para enviar a mensagem').addChannelTypes(ChannelType.GuildText).setRequired(true)),
+      .addChannelOption(opt => opt.setName('canal').setDescription('Canal').setRequired(true).addChannelTypes(ChannelType.GuildText)),
 
     new SlashCommandBuilder()
       .setName('editarmensagem')
-      .setDescription('Editar mensagem enviada pelo bot pelo link')
+      .setDescription('Edita mensagem enviada pelo bot')
       .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-      .addStringOption(opt => opt.setName('link').setDescription('Link da mensagem (ex: https://discord.com/channels/guildId/canalId/mensagemId)').setRequired(true)),
+      .addStringOption(opt => opt.setName('link').setDescription('Link da mensagem').setRequired(true)),
 
     new SlashCommandBuilder()
       .setName('help')
-      .setDescription('Mostrar comandos de administração')
+      .setDescription('Lista os comandos de barra disponíveis (admin)')
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+    new SlashCommandBuilder()
+      .setName('dm')
+      .setDescription('Envia uma DM para um ou mais usuários (separe por espaço ou vírgula)')
       .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+      .addStringOption(opt => opt.setName('usuarios').setDescription('IDs ou menções dos usuários').setRequired(true))
+      .addStringOption(opt => opt.setName('mensagem').setDescription('Mensagem para enviar').setRequired(true)),
   ];
 
   const rest = new REST({ version: '10' }).setToken(token);
-  try {
-    console.log('🚀 Registrando comandos slash...');
-    await rest.put(
-      Routes.applicationGuildCommands(clientId, guildId),
-      { body: comandos.map(c => c.toJSON()) }
-    );
-    console.log('✅ Comandos registrados!');
-  } catch (error) {
-    console.error(error);
-  }
+  await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
+    body: comandos.map(c => c.toJSON())
+  });
 }
 
 client.once('ready', () => {
-  console.log(`✅ Bot conectado como ${client.user.tag}`);
+  console.log(`Bot conectado como ${client.user.tag}`);
   registrarComandos();
 });
 
 client.on(Events.InteractionCreate, async interaction => {
-  if (interaction.isChatInputCommand()) {
-    const adminCheck = interaction.memberPermissions.has(PermissionFlagsBits.Administrator);
-    if (!adminCheck) {
-      return interaction.reply({ content: '❌ Apenas administradores podem usar comandos slash.', ephemeral: true });
+  if (!interaction.isChatInputCommand()) return;
+
+  const userId = interaction.user.id;
+  const cmdName = interaction.commandName;
+
+  // Comando /help só para admins
+  if (cmdName === 'help') {
+    if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) {
+      return interaction.reply({ content: 'Apenas administradores.', ephemeral: true });
+    }
+    // Listar comandos slash
+    const comandosSlash = [
+      '/criarcomando (Cria um comando personalizado)',
+      '/editarcomando (Edita um comando existente)',
+      '/deletarcomando (Deleta um comando)',
+      '/mensagem (Envia mensagem do bot para um canal)',
+      '/editarmensagem (Edita mensagem enviada pelo bot)',
+      '/dm (Envia uma DM para um usuário)',
+      '/help (Lista comandos de barra disponíveis)'
+    ];
+    return interaction.reply({
+      content: `### Comandos de barra disponíveis:\n${comandosSlash.join('\n')}`,
+      ephemeral: true
+    });
+  }
+
+  // Para os outros comandos, verificar permissão admin (exceto !ajuda que é por mensagem)
+  if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) {
+    return interaction.reply({ content: 'Apenas administradores.', ephemeral: true });
+  }
+
+  if (cmdName === 'criarcomando') {
+    const nome = interaction.options.getString('nome').toLowerCase();
+    const usarEmbed = interaction.options.getBoolean('usar_embed');
+    let cor = interaction.options.getString('cor');
+    cor = cor?.startsWith('#') ? cor : cor ? '#' + cor : '#0099ff';
+
+    if (comandosCustomizados[nome]) {
+      return interaction.reply({ content: 'Comando já existe.', ephemeral: true });
     }
 
-    switch (interaction.commandName) {
-      case 'criarcomando': {
-        const nomeComando = interaction.options.getString('nome').toLowerCase();
-        const usarEmbed = interaction.options.getBoolean('usar_embed');
-        let cor = interaction.options.getString('cor');
+    estados.criandoComando.set(userId, { nome, usarEmbed, cor, channelId: interaction.channelId });
+    return interaction.reply({ content: `Envie a mensagem para !${nome}. Você pode anexar uma imagem.`, ephemeral: true });
+  }
 
-        if (cor) {
-          if (!cor.startsWith('#')) cor = '#' + cor;
-          if (!/^#[0-9A-F]{6}$/i.test(cor)) {
-            return interaction.reply({ content: '❌ Cor inválida! Use o formato hex, ex: #FF0000', ephemeral: true });
-          }
-        } else {
-          cor = '#0099ff';
-        }
+  if (cmdName === 'editarcomando') {
+    const nome = interaction.options.getString('nome').toLowerCase();
+    const existente = comandosCustomizados[nome];
+    if (!existente) return interaction.reply({ content: 'Comando não existe.', ephemeral: true });
 
-        if (comandosCustomizados[nomeComando]) {
-          return interaction.reply({ content: `❌ O comando !${nomeComando} já existe.`, ephemeral: true });
-        }
+    estados.editandoComando.set(userId, { nome, etapa: 'mensagem' });
+    return interaction.reply({ content: `Envie a nova mensagem para !${nome}. Você pode anexar uma imagem.`, ephemeral: true });
+  }
 
-        estados.criandoComando.set(interaction.user.id, {
-          nomeComando,
-          usarEmbed,
-          cor,
-          channelId: interaction.channelId
-        });
-
-        await interaction.reply({ content: `📝 Agora envie a mensagem que o comando !${nomeComando} deve enviar (use emojis e formatação).`, ephemeral: true });
-        break;
-      }
-
-      case 'editarcomando': {
-        const nome = interaction.options.getString('nome').toLowerCase();
-        if (!comandosCustomizados[nome]) {
-          return interaction.reply({ content: `❌ O comando !${nome} não existe.`, ephemeral: true });
-        }
-        estados.editandoComando.set(interaction.user.id, nome);
-        await interaction.reply({ content: `✏️ Envie a nova mensagem para o comando !${nome}.`, ephemeral: true });
-        break;
-      }
-
-      case 'deletarcomando': {
-        const nome = interaction.options.getString('nome').toLowerCase();
-        if (!comandosCustomizados[nome]) {
-          return interaction.reply({ content: `❌ O comando !${nome} não existe.`, ephemeral: true });
-        }
-        delete comandosCustomizados[nome];
-        salvarComandos();
-        await interaction.reply({ content: `✅ Comando !${nome} deletado com sucesso.`, ephemeral: true });
-        break;
-      }
-
-      case 'mensagem': {
-        const canal = interaction.options.getChannel('canal');
-        if (canal.type !== ChannelType.GuildText) {
-          return interaction.reply({ content: '❌ Por favor, escolha um canal de texto válido.', ephemeral: true });
-        }
-
-        estados.enviandoMensagem.set(interaction.user.id, { canalId: canal.id });
-        await interaction.reply({ content: `📝 Agora envie a mensagem que eu devo enviar no canal ${canal}.`, ephemeral: true });
-        break;
-      }
-
-      case 'editarmensagem': {
-        const link = interaction.options.getString('link');
-        // Exemplo de link: https://discord.com/channels/guildId/channelId/messageId
-        const partes = link.split('/');
-        if (partes.length < 7) {
-          return interaction.reply({ content: '❌ Link de mensagem inválido.', ephemeral: true });
-        }
-        const guildIdLink = partes[4];
-        const channelIdLink = partes[5];
-        const messageIdLink = partes[6];
-
-        if (guildIdLink !== guildId) {
-          return interaction.reply({ content: '❌ Esse link não é deste servidor.', ephemeral: true });
-        }
-
-        estados.editandoMensagem.set(interaction.user.id, {
-          channelId: channelIdLink,
-          messageId: messageIdLink
-        });
-
-        await interaction.reply({ content: `✏️ Agora envie a nova mensagem para editar a mensagem ${link}`, ephemeral: true });
-        break;
-      }
-
-      case 'help': {
-        const texto = 
-`📚 **Comandos de Administração**
-
-/criarcomando - Cria um comando personalizado (inicia fluxo)
-/editarcomando - Edita a mensagem de um comando existente
-/deletarcomando - Deleta um comando personalizado
-/mensagem - Envia uma mensagem do bot em um canal (inicia fluxo)
-/editarmensagem - Edita mensagem enviada pelo bot pelo link
-/help - Mostra esta ajuda`;
-
-        await interaction.reply({ content: texto, ephemeral: true });
-        break;
-      }
-
-      default:
-        await interaction.reply({ content: '❌ Comando não reconhecido.', ephemeral: true });
+  if (cmdName === 'deletarcomando') {
+    const nome = interaction.options.getString('nome').toLowerCase();
+    if (!comandosCustomizados[nome]) {
+      return interaction.reply({ content: 'Comando não existe.', ephemeral: true });
     }
+    // Deleta do JSON
+    delete comandosCustomizados[nome];
+    salvarComandos();
+
+    // Opcional: Para garantir que o comando não fique registrado em cache ou algo, 
+    // podemos apenas responder, pois esses comandos são custom e chamados via !nome,
+    // e não slash commands.
+    return interaction.reply({ content: `Comando !${nome} deletado com sucesso.`, ephemeral: true });
+  }
+
+  if (cmdName === 'mensagem') {
+    const canal = interaction.options.getChannel('canal');
+    estados.enviandoMensagem.set(userId, { canalId: canal.id });
+    return interaction.reply({ content: `Envie a mensagem para ${canal}. Você pode anexar uma imagem.`, ephemeral: true });
+  }
+
+  if (cmdName === 'editarmensagem') {
+    const link = interaction.options.getString('link');
+    const partes = link.split('/');
+    if (partes.length < 7) return interaction.reply({ content: 'Link inválido.', ephemeral: true });
+    const [guildIdLink, channelIdLink, messageIdLink] = partes.slice(4);
+    estados.editandoMensagem.set(userId, { channelId: channelIdLink, messageId: messageIdLink });
+    return interaction.reply({ content: 'Envie a nova mensagem. Você pode anexar uma imagem.', ephemeral: true });
+  } 
+  
+  if (cmdName === 'dm') {
+    const usuariosRaw = interaction.options.getString('usuarios');
+    const mensagem = interaction.options.getString('mensagem');
+    // Extrai IDs de menções ou IDs puros
+    const ids = usuariosRaw.match(/\d{17,}/g);
+    if (!ids || ids.length === 0) {
+      return interaction.reply({ content: 'Nenhum usuário válido informado.', ephemeral: true });
+    }
+    let enviados = 0, falhas = 0;
+    for (const id of ids) {
+      try {
+        const user = await client.users.fetch(id);
+        await user.send(mensagem);
+        enviados++;
+      } catch {
+        falhas++;
+      }
+    }
+    return interaction.reply({
+      content: `DM enviada para ${enviados} usuário(s).${falhas ? ` Falha em ${falhas}.` : ''}`,
+      ephemeral: true
+    });
   }
 });
 
-// Comando !help aberto para todos listando comandos customizados
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
+  const userId = message.author.id;
 
-  if (message.content.trim() === '!help') {
-    const cmds = Object.keys(comandosCustomizados);
-    if (cmds.length === 0) {
-      return message.channel.send('Nenhum comando customizado criado ainda.');
+  const getImageURL = () => message.attachments.first()?.url ?? null;
+
+  // Estados de criação de comando
+  if (estados.criandoComando.has(userId)) {
+    const { nome, usarEmbed, cor } = estados.criandoComando.get(userId);
+    const image = getImageURL();
+    const conteudo = message.content.trim();
+
+    if (!conteudo && !image) {
+      return message.reply('Envie uma mensagem ou anexe uma imagem para o comando.');
     }
-    const lista = cmds.map(c => `!${c}`).join(', ');
-    return message.channel.send(`📘 Comandos: ${lista}`);
-  }
 
-  // Fluxos que aguardam mensagens do usuário (apenas para admin)
-  if (estados.criandoComando.has(message.author.id)) {
-    const estado = estados.criandoComando.get(message.author.id);
-    if (message.channel.id !== estado.channelId) return; // só no canal original
-
-    comandosCustomizados[estado.nomeComando] = {
-      mensagem: message.content,
-      embed: estado.usarEmbed,
-      cor: estado.cor
+    comandosCustomizados[nome] = {
+      mensagem: conteudo || image,
+      embed: usarEmbed,
+      cor
     };
     salvarComandos();
-    estados.criandoComando.delete(message.author.id);
-    return message.reply(`✅ Comando !${estado.nomeComando} criado com sucesso.`);
+    estados.criandoComando.delete(userId);
+    return message.reply(`Comando !${nome} criado.`);
   }
 
-  if (estados.editandoComando.has(message.author.id)) {
-    const nomeCmd = estados.editandoComando.get(message.author.id);
-    comandosCustomizados[nomeCmd].mensagem = message.content;
-    salvarComandos();
-    estados.editandoComando.delete(message.author.id);
-    return message.reply(`✅ Comando !${nomeCmd} editado com sucesso.`);
+  // Estados de edição de comando
+  if (estados.editandoComando.has(userId)) {
+    const { nome, etapa } = estados.editandoComando.get(userId);
+    if (etapa === 'mensagem') {
+      const image = getImageURL();
+      const conteudo = message.content.trim();
+
+      if (!conteudo && !image) {
+        return message.reply('Envie uma mensagem ou anexe uma imagem para o comando.');
+      }
+
+      comandosCustomizados[nome].mensagem = conteudo || image;
+      if (comandosCustomizados[nome].embed) {
+        estados.editandoComando.set(userId, { nome, etapa: 'cor' });
+        return message.reply('Deseja mudar a cor? Envie o novo valor (ex: #ff0000) ou "pular".');
+      } else {
+        salvarComandos();
+        estados.editandoComando.delete(userId);
+        return message.reply('Comando editado.');
+      }
+    } else if (etapa === 'cor') {
+      const cor = message.content.trim();
+      if (cor.toLowerCase() !== 'pular') {
+        if (!/^#?[0-9A-F]{6}$/i.test(cor)) return message.reply('Cor inválida. Use hexadecimal, ex: #00ff00');
+        comandosCustomizados[nome].cor = cor.startsWith('#') ? cor : '#' + cor;
+      }
+      salvarComandos();
+      estados.editandoComando.delete(userId);
+      return message.reply('Comando editado.');
+    }
   }
 
-  if (estados.enviandoMensagem.has(message.author.id)) {
-    const { canalId } = estados.enviandoMensagem.get(message.author.id);
+  // Estado enviando mensagem via /mensagem
+  if (estados.enviandoMensagem.has(userId)) {
+    const { canalId } = estados.enviandoMensagem.get(userId);
     const canal = message.guild.channels.cache.get(canalId);
-    if (!canal) {
-      estados.enviandoMensagem.delete(message.author.id);
-      return message.reply('❌ Canal não encontrado, operação cancelada.');
-    }
-    canal.send(message.content)
-      .then(() => {
-        estados.enviandoMensagem.delete(message.author.id);
-        message.reply(`✅ Mensagem enviada no canal ${canal}.`);
-      })
-      .catch(err => {
-        message.reply('❌ Erro ao enviar mensagem: ' + err.message);
-      });
-    return;
+    if (!canal) return message.reply('Canal inválido.');
+
+    const image = getImageURL();
+    const embed = new EmbedBuilder().setDescription(message.content);
+    if (image) embed.setImage(image);
+
+    await canal.send({ embeds: [embed] });
+    estados.enviandoMensagem.delete(userId);
+    return message.reply('Mensagem enviada.');
   }
 
-  if (estados.editandoMensagem.has(message.author.id)) {
-    const { channelId, messageId } = estados.editandoMensagem.get(message.author.id);
+  // Estado editando mensagem via /editarmensagem
+  if (estados.editandoMensagem.has(userId)) {
+    const { channelId, messageId } = estados.editandoMensagem.get(userId);
     const canal = message.guild.channels.cache.get(channelId);
-    if (!canal) {
-      estados.editandoMensagem.delete(message.author.id);
-      return message.reply('❌ Canal não encontrado, operação cancelada.');
-    }
+    if (!canal) return message.reply('Canal inválido.');
+
+    let targetMsg;
     try {
-      const msg = await canal.messages.fetch(messageId);
-      await msg.edit(message.content);
-      estados.editandoMensagem.delete(message.author.id);
-      message.reply('✅ Mensagem editada com sucesso.');
-    } catch (err) {
-      message.reply('❌ Erro ao editar mensagem: ' + err.message);
+      targetMsg = await canal.messages.fetch(messageId);
+    } catch {
+      estados.editandoMensagem.delete(userId);
+      return message.reply('Mensagem não encontrada.');
     }
-    return;
+
+    const image = getImageURL();
+    const embed = new EmbedBuilder().setDescription(message.content);
+    if (image) embed.setImage(image);
+
+    await targetMsg.edit({ embeds: [embed] });
+    estados.editandoMensagem.delete(userId);
+    return message.reply('Mensagem editada.');
   }
 
-  // Comandos customizados via !nome
+  // Comando !ajuda para qualquer membro listar comandos customizados
+  if (message.content.trim().toLowerCase() === '!ajuda') {
+    const nomes = Object.keys(comandosCustomizados);
+    if (nomes.length === 0) {
+      return message.reply('Não há comandos cadastrados.');
+    }
+    // Filtra comandos que começam com "regra"
+    const comandosRegra = nomes.filter(n => n.startsWith('regra'));
+    const outrosComandos = nomes.filter(n => !n.startsWith('regra'));
+    let lista = '';
+    if (comandosRegra.length > 0) {
+      lista += '!regra X';
+      if (outrosComandos.length > 0) lista += ' // ';
+    }
+    lista += outrosComandos.map(n => `!${n}`).join(' // ');
+    return message.reply(`**Comandos disponíveis:**\n${lista}`);
+  }
+
+  // Executar comandos customizados (!nome)
   if (message.content.startsWith('!')) {
     const nome = message.content.slice(1).toLowerCase();
-    if (comandosCustomizados[nome]) {
-      const cmd = comandosCustomizados[nome];
+    const cmd = comandosCustomizados[nome];
+    if (cmd) {
       if (cmd.embed) {
-        const embed = new EmbedBuilder().setDescription(cmd.mensagem).setColor(cmd.cor || '#0099ff');
+        const embed = new EmbedBuilder()
+          .setDescription(cmd.mensagem)
+          .setColor(cmd.cor || '#0099ff');
+
+        // Se a mensagem for uma url direta e for imagem, exibe imagem no embed
+        if (cmd.mensagem?.startsWith('http') && !cmd.mensagem.includes(' ')) {
+          embed.setImage(cmd.mensagem);
+        }
         return message.channel.send({ embeds: [embed] });
       } else {
         return message.channel.send(cmd.mensagem);
