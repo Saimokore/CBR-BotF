@@ -104,28 +104,70 @@
     "embed": false,
     "cor": "#0099ff"
   },
-  "girias": {
-    "mensagem": "## GÍRIAS CELESTE BRASIL™️\n**pb **= Personal Best (Melhor Tempo)\n**strats **= Estratégias (Estratégias para passar de alguma parte, normalmente rápidamente)\n**wr **= World Record (Recorde Mundial)\n**il **= Individual Level (Level individual)\n**1a** = Capítulo 1 lado A, e segue o modelo 1b = Capítulo 1 lado B, 1c = Capítulo 1 lado C\n**vanilla **= Jogo normal, sem mods\n**lb**= Leaderboard, uma tabela com os tempos dos jogadores\n**everest/olympus** =  Celeste modificado, Launcher de mods\n**sob **= Sum of Best (Soma dos melhores tempos)\n**skip **= Pular alguma parte do jogo ou passar sem fazê-la\n**bopar **= Conseguir um tempo ou uma conquista melhor que outra pessoa que estava previamente a sua frente\n**gl **= Good Luck (Boa sorte), normalmente escrevem \"glgl\"\n**walljump **= Pulo na parede\n**bubsdrop **= Strat do 5b que skipa(pula) uma parte\n**sub XX** = Menor que tal tempo, exemplo: sub 30 (menos que 30 minutos ou 30 segundos, depende do contexto)\nsaimo = lindo e sempre certo\n**any%** = Categoria de zerar o jogo com qualquer %\n**100%** = Categoria de zerar o jogo 100%\n**assist **= Modo de Assistência do Celeste (Assist Mode)\n**arb **= All Red Berries (Todos os morangos vermelhos)\n**checkpoint **= Os capítulos são dividos em checkpoints (cp)\n**splits **= Segmentos do Livesplit (Aplicativo que cronometra o tempo para Speedruns)\n**free **= Para dizer que algo é fácil de se fazer (grátis), normalmente usada ironicamente em strats difíceis\n**fc (Full Clear)** = Completar um capítulo com tudo em uma run só (Bandeira Dourada)\n**chapter ou ch** = Capítulo\n**pace** = Alguém estar em ritmo de um **PB**\n**demodash ou demo** = Dash agachado\n**deathless **= Sem mortes\n**awake **= Checkpoint final do capítulo 2\n**TAS **= Tool Assisted Speedrun (Run feita com inputs pré configurados)\n**sc **= Spring Collab (Mod com Vários mapas feitos por várias pessoas)\n**sj **= Strawberry Jam Collab (Mod com Vários mapas feitos por várias pessoas)",
-    "embed": true,
-    "cor": "#4F5FE5"
-  },
-  "redes": {
-    "mensagem": "**Nossas redes sociais:** https://linktr.ee/celestebrasil",
-    "embed": false,
-    "cor": "#0099ff"
-  },
   "cobrasil": {
-    "mensagem": "A CoBrasil é uma Colaboração Brasileira de Mods criado pela comunidade brasileira semelhante a projetos internacionais, como a Spring Collab 2020 e a Strawberry Jam 2022! Já somos mais de 30 mapas existentes nesse projeto! Aceitamos mappers, playtesters, músicos, artistas, decoradores, coders e todo mundo!! Quaisquer dúvidas, o chat <#1191506197782724648> tem mais informações, ou também fique à vontade para pingar o cargo <@&1066877422689079357> caso haja QUALQUER dúvida! Te esperamos lá!",
+    "mensagem": "A CoBrasil é uma Colaboração Brasileira de Mods criado pela comunidade brasileira semelhante a projetos internacionais, como a Spring Collab 2020 e a Strawberry Jam 2022! Já somos mais de 30 mapas existentes nesse projeto! Aceitamos mappers, playtesters, músicos, artistas, decoradores, coders e todo mundo!! Quaisquer dúvidas, o chat <#1191506197782724648> tem mais informações, ou também fique à vontade para pingar o cargo @Capitão caso haja QUALQUER dúvida! Te esperamos lá!",
     "embed": false,
     "cor": "#0099ff"
   },
-  "tag": {
-    "mensagem": "https://cdn.discordapp.com/attachments/853799131171520522/1382346719861407755/image.png?ex=684ad234&is=684980b4&hm=b49adc43f7f45b40367371a79995d614eae10bd415068d5448676486467eed22&",
+  "baixarmods": {
+    "mensagem": "O **Olympus** é o programa que __permite você rodar mods em seu Celeste__. Ele é apenas exclusivo para as versões de PC. Para baixar, siga os seguintes passos:\n1. Baixe e instale o Olympus por [esse link](https://gamebanana.com/tools/6449);\n2. Tendo o programa baixado, abra-o. No menu principal, à esquerda, adicione o executável de Celeste que você possui;\n3. Aparecerá um botão de exclamação ❗ em cima de um botão escrito \"*Everest*\". Clique para instalar! Essa é a versão do Celeste que permitirá você rodar mods;\n  - OBS: A versão \"*Vanilla*\" serve para rodar a versão original do jogo e serve para gravar speedruns e outras coisas.\n4. Agora clique no botão \"*Baixar Mods*\" para baixar qualquer mod que gostar! E quando terminar, só abrir o Celeste na versão Everest para aproveitar!",
+    "embed": true,
+    "cor": "#00FF00",
+    "aliases": [
+      "olympus",
+      "mods"
+    ]
+  },
+  "lonn": {
+    "mensagem": "https://youtu.be/5kTWb3ZpQ-Y?si=lK_utU3int04bI7-",
     "embed": false,
     "cor": "#0099ff"
   },
-  "verver": {
-    "mensagem": "https://cdn.discordapp.com/attachments/853799131171520522/1382350489202589736/image.png?ex=684ad5b7&is=68498437&hm=74c025fc3b40a5c4e21483828de112be341351e72fed5219dc380eab67620aed&",
+  "gustavof": {
+    "mensagem": "https://cdn.discordapp.com/attachments/1382731931883405424/1387630520581754940/render2.png?ex=685e0b21&is=685cb9a1&hm=c4e757916f18245b9b846a8add8453fc784ff0ec02c129de926fcef618440347&",
+    "embed": false,
+    "cor": "#0099ff"
+  },
+  "angle": {
+    "mensagem": "angle",
+    "embed": false,
+    "cor": "#0099ff"
+  },
+  "rickdeus": {
+    "mensagem": "## ⚠️ __Não, Rickfernello não é o Deus supremo do Celeste__ ⚠️\nTodos reconhecemos a conquista incrível dele de **Max% Deathless**, mas existem outros jogadores - incluindo brasileiros - com mesmo nível de jogo que ele, além de ter grandes feitos em outras categorias (speedrun, ModClear, TAS, etc.) que não dá para comparar com Golden, não tem melhor ou pior. \n\nTratar o Rick como um ser superior é chato pra todos (até pra ele mesmo), além de ser errado e mostrar que você não conhece muito da comunidade. Ele é uma pessoa que nem eu e você, não coloque ele num pedestal <:sim:1019793334597845082>",
+    "embed": false,
+    "cor": "#0099ff"
+  },
+  "gírias": {
+    "mensagem": "https://cdn.discordapp.com/attachments/1382731931883405424/1394036088024338492/image.png?ex=687558c7&is=68740747&hm=712e10db329352fd22f818613636ea1b7ea1780ee8b8eb7b697787674282414d&",
+    "embed": false,
+    "cor": "#0099ff",
+    "aliases": [
+      "girias",
+      "giria",
+      "gíria"
+    ]
+  },
+  "ticket": {
+    "mensagem": "## 🎟️ Para denúncias, sugestões ou contato com a Administração 🎟️ \n### - [Crie um ticket através deste link](https://discord.com/channels/754393217620770918/1267183928356245597/1267194478729367603)",
+    "embed": false,
+    "cor": "#0099ff"
+  },
+  "social": {
+    "mensagem": "Nossas redes sociais: https://linktr.ee/celestebrasil",
+    "embed": false,
+    "cor": "#0099ff"
+  },
+  "feijao": {
+    "mensagem": "https://pt.wikipedia.org/wiki/Ilha_do_Governador",
+    "embed": false,
+    "cor": "#0099ff",
+    "aliases": [
+      "feijão"
+    ]
+  },
+  "@gustavof": {
+    "mensagem": "<@287391905614921728>",
     "embed": false,
     "cor": "#0099ff"
   }
