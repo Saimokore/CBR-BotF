@@ -1,4 +1,3 @@
-// index.ts corrigido com suporte garantido a DMs desde o início
 
 const {
   Client, GatewayIntentBits, EmbedBuilder, Events, PermissionFlagsBits,
@@ -344,18 +343,38 @@ client.on('messageCreate', async message => {
   // Funções utilitárias para tempo Celeste
   function parseCelesteTime(str) {
     // Aceita formatos: mm:ss.SSS, h:mm:ss.SSS, s.SSS, etc.
-    const regex = /^((\d+:)?\d{1,2}:)?\d{1,2}\.\d{3}$/;
-    if (!regex.test(str)) return null;
-    const parts = str.split(':').reverse();
-    let ms = 0;
-    if (parts.length === 1) {
-      ms = parseFloat(parts[0]) * 1000;
-    } else if (parts.length === 2) {
-      ms = (parseInt(parts[1]) * 60 + parseFloat(parts[0])) * 1000;
-    } else if (parts.length === 3) {
-      ms = (parseInt(parts[2]) * 3600 + parseInt(parts[1]) * 60 + parseFloat(parts[0])) * 1000;
+    if (typeof str !== 'string' || !/^[0-9:.]+$/.test(str)) {
+        return null;
     }
-    return ms / 1000;
+    const parts = str.split(':');
+    let totalSeconds = 0;
+
+    try {
+        if (parts.length === 1) {
+            // Cobre formatos como "8.6" ou "12"
+            totalSeconds = parseFloat(parts[0]);
+        } else if (parts.length === 2) {
+            // Cobre formatos como "1:03" ou "4:35.123"
+            const minutes = parseInt(parts[0], 10);
+            const seconds = parseFloat(parts[1]);
+            totalSeconds = (minutes * 60) + seconds;
+        } else if (parts.length === 3) {
+            // Cobre formatos como "1:10:25.5"
+            const hours = parseInt(parts[0], 10);
+            const minutes = parseInt(parts[1], 10);
+            const seconds = parseFloat(parts[2]);
+            totalSeconds = (hours * 3600) + (minutes * 60) + seconds;
+        } else {
+            return null; // Formato inválido com mais de 2 separadores ':'
+        }
+
+        // Retorna null se o resultado final não for um número válido.
+        return isNaN(totalSeconds) ? null : totalSeconds;
+
+    } catch (e) {
+        // Captura qualquer erro de parsing inesperado.
+        return null;
+    }
   }
 
   function formatCelesteTime(seconds) {
@@ -447,7 +466,7 @@ client.on('messageCreate', async message => {
         t = parseFloat(arg.replace(',', '.'));
       }
       if (isNaN(t)) {
-        return message.reply(`❌ Tempo inválido. Use o formato mm:ss.SSS ou segundos com 3 casas decimais.`);
+        return message.reply(`❌ Tempo inválido. Use o formato hh:mm:ss.SSS`);
       }
       total += t;
       partesFormatadas.push(`${formatCelesteTime(t)} (${framesFromSeconds(t)}f)`);
