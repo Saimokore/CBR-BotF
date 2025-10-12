@@ -1,741 +1,621 @@
-
+// ================================================================= //
+//                             IMPORTAÇÕES                           //
+// ================================================================= //
 const {
-  Client, GatewayIntentBits, EmbedBuilder, Events, PermissionFlagsBits,
-  SlashCommandBuilder, REST, Routes, ChannelType, Partials
+    Client, GatewayIntentBits, EmbedBuilder, Events, PermissionFlagsBits,
+    SlashCommandBuilder, REST, Routes, ChannelType, Partials
 } = require('discord.js');
-const { token, clientId, guildId } = require('./config.json');
-const fs = require('fs');
+const fs = require('fs').promises; // Usando a versão assíncrona
 const path = require('path');
+const { parseCelesteTime, formatCelesteTime, framesFromSeconds } = require('./utils');
 
-const comandosPath = path.join(__dirname, 'comandos.json');
-let comandosCustomizados = {};
-if (fs.existsSync(comandosPath)) {
-  comandosCustomizados = JSON.parse(fs.readFileSync(comandosPath, 'utf8'));
-}
+// ================================================================= //
+//                            CONFIGURAÇÃO                           //
+// ================================================================= //
+const { token, clientId, guildId } = require('./config.json');
 
-// Adicione esta linha para criar o aliasesMap:
-let aliasesMap = {};
-for (const nome in comandosCustomizados) {
-  const cmd = comandosCustomizados[nome];
-  if (cmd.aliases && Array.isArray(cmd.aliases)) {
-    for (const alias of cmd.aliases) {
-      aliasesMap[alias] = nome;
-    }
-  }
-}
-
-function salvarComandos() {
-  fs.writeFileSync(comandosPath, JSON.stringify(comandosCustomizados, null, 2));
-}
+// Constantes para fácil manutenção
+const COMANDOS_PATH = path.join(__dirname, 'comandos.json');
+const LOG_CHANNEL_ID = '1382731931883405424';
+const CARGO_KICK_ID = '1401330736442638497';
+const DEFAULT_EMBED_COLOR = '#0099ff';
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.DirectMessages,
-  ],
-  partials: [Partials.Channel],
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.GuildMembers,
+    ],
+    partials: [Partials.Channel],
 });
 
-console.log('Bot está iniciando...'); // Adicione esta linha
+// ================================================================= //
+//                       GERENCIAMENTO DE DADOS                      //
+// ================================================================= //
+let comandosCustomizados = {};
+let aliasesMap = {};
 
+// Gerenciador de estados para comandos interativos
 const estados = {
-  criandoComando: new Map(),
-  editandoComando: new Map(),
-  enviandoMensagem: new Map(),
-  editandoMensagem: new Map(),
+    criandoComando: new Map(),
+    editandoComando: new Map(),
+    enviandoMensagem: new Map(),
+    editandoMensagem: new Map(),
 };
 
-async function registrarComandos() {
-  const comandos = [
-    new SlashCommandBuilder()
-      .setName('comando')
-      .setDescription('Gerencia comandos personalizados')
-      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-      .addSubcommand(sub =>
-        sub.setName('criar')
-          .setDescription('Cria um comando personalizado')
-          .addStringOption(opt => opt.setName('nome').setDescription('Nome do comando').setRequired(true))
-          .addBooleanOption(opt => opt.setName('usar_embed').setDescription('Usar embed?').setRequired(true))
-          .addStringOption(opt => opt.setName('cor').setDescription('Cor do embed (hex)').setRequired(false))
-      )
-      .addSubcommand(sub =>
-        sub.setName('editar')
-          .setDescription('Edita um comando personalizado')
-          .addStringOption(opt => opt.setName('nome').setDescription('Nome do comando').setRequired(true))
-          .addStringOption(opt => opt.setName('cor').setDescription('Nova cor do embed (hex)').setRequired(false))
-      )
-      .addSubcommand(sub =>
-        sub.setName('deletar')
-          .setDescription('Deleta um comando personalizado')
-          .addStringOption(opt => opt.setName('nome').setDescription('Nome do comando').setRequired(true))
-      ),
+// Gerenciador de spam
+const userImageTracker = new Map();
+const TIME_WINDOW = 30 * 1000;
+const IMAGE_THRESHOLD = 3;
+const CHANNEL_THRESHOLD = 3;
 
-    new SlashCommandBuilder()
-      .setName('mensagem')
-      .setDescription('Envia mensagem do bot')
-      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-      .addChannelOption(opt => opt.setName('canal').setDescription('Canal').setRequired(true).addChannelTypes(ChannelType.GuildText))
-      .addBooleanOption(opt => opt.setName('usar_embed').setDescription('Enviar como embed?').setRequired(true))
-      .addStringOption(opt => opt.setName('cor').setDescription('Cor do embed (hex)').setRequired(false)),
-
-    new SlashCommandBuilder()
-      .setName('editarmensagem')
-      .setDescription('Edita mensagem enviada pelo bot')
-      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-      .addStringOption(opt => opt.setName('link').setDescription('Link da mensagem').setRequired(true))
-      .addStringOption(opt => opt.setName('cor').setDescription('Nova cor do embed (hex)').setRequired(false)),
-
-    new SlashCommandBuilder()
-      .setName('help')
-      .setDescription('Lista os comandos de barra disponíveis (admin)')
-      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-
-    new SlashCommandBuilder()
-      .setName('dm')
-      .setDescription('Envia uma DM para um ou mais usuários (separe por espaço ou vírgula)')
-      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-      .addStringOption(opt => opt.setName('usuarios').setDescription('IDs ou menções dos usuários').setRequired(true))
-      .addStringOption(opt => opt.setName('mensagem').setDescription('Mensagem para enviar').setRequired(true)),
-
-    new SlashCommandBuilder()
-      .setName('subcomando')
-      .setDescription('Gerencia aliases de comandos')
-      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-      .addSubcommand(sub =>
-        sub.setName('adicionar')
-          .setDescription('Adiciona um alias para um comando existente')
-          .addStringOption(opt => opt.setName('comando').setDescription('Comando principal').setRequired(true))
-          .addStringOption(opt => opt.setName('alias').setDescription('Novo alias').setRequired(true))
-      )
-      .addSubcommand(sub =>
-        sub.setName('remover')
-          .setDescription('Remove um alias de um comando')
-          .addStringOption(opt => opt.setName('comando').setDescription('Comando principal').setRequired(true))
-          .addStringOption(opt => opt.setName('alias').setDescription('Alias para remover').setRequired(true))
-      ),
-  ];
-
-  const rest = new REST({ version: '10' }).setToken(token);
-  await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
-    body: comandos.map(c => c.toJSON())
-  });
-}
-
-client.once('ready', async () => {
-  console.log(`Bot conectado como ${client.user.tag}`);
-  await registrarComandos();
-
-  try {
-    const guild = await client.guilds.fetch(guildId);
-    await guild.members.fetch();
-    console.log('✅ Membros do servidor carregados para cache.');
-  } catch (err) {
-    console.error('Erro ao carregar membros do servidor:', err);
-  }
-});
-
-client.on('messageCreate', async message => {
-  const userId = message.author.id;
-
-  if (message.partial) await message.fetch();
-  if (message.channel.partial) await message.channel.fetch();
-  if (message.author.bot) return;
-
-  if (message.channel.type === ChannelType.DM) {
-    console.log(`✅ DM recebida de ${message.author.tag}: ${message.content || '[Sem conteúdo]'}`);
-
-    const guild = client.guilds.cache.get(guildId);
-    if (!guild) return;
-
-    const logChannel = guild.channels.cache.find(
-      c => c.type === ChannelType.GuildText && (c.name === 'bot-log' || c.id === '1382731931883405424')
-    );
-
-    if (!logChannel || !logChannel.isTextBased()) {
-      console.log('⚠️ Canal de log não encontrado ou inválido.');
-      return;
-    }
-
-    const embed = new EmbedBuilder()
-      .setTitle('Mensagem recebida em DM')
-      .setDescription(message.content || '*Sem texto*')
-      .addFields({ name: 'Usuário', value: `${message.author.tag} (<@${message.author.id}>)` })
-      .setColor('#0099ff')
-      .setTimestamp();
-
-    const image = message.attachments.first()?.url;
-    if (image) embed.setImage(image);
-
+// Funções para carregar e salvar comandos
+async function carregarComandos() {
     try {
-      await logChannel.send({ embeds: [embed] });
-    } catch (err) {
-      console.error('❌ Erro ao enviar log de DM:', err);
-    }
-
-    return;
-  }
-
-  const getImageURL = () => message.attachments.first()?.url ?? null;
-
-  // Estados de criação de comando
-  if (estados.criandoComando.has(userId)) {
-    const { nome, usarEmbed, cor } = estados.criandoComando.get(userId);
-    const image = getImageURL();
-    const conteudo = message.content.trim();
-
-    if (!conteudo && !image) {
-      return message.reply('Envie uma mensagem ou anexe uma imagem para o comando.');
-    }
-
-    comandosCustomizados[nome] = {
-      mensagem: conteudo || image,
-      embed: usarEmbed,
-      cor
-    };
-    salvarComandos();
-    estados.criandoComando.delete(userId);
-    return message.reply(`Comando !${nome} criado.`);
-  }
-
-  // Estados de edição de comando
-  if (estados.editandoComando.has(userId)) {
-    const { nome } = estados.editandoComando.get(userId);
-    const image = getImageURL();
-    const conteudo = message.content.trim();
-
-    if (!conteudo && !image) {
-      return message.reply('Envie uma mensagem ou anexe uma imagem para o comando.');
-    }
-
-    comandosCustomizados[nome].mensagem = conteudo || image;
-    salvarComandos();
-    estados.editandoComando.delete(userId);
-    return message.reply('Comando editado.');
-  }
-
-  // Estado enviando mensagem via /mensagem
-  if (estados.enviandoMensagem.has(userId)) {
-    const { canalId, usarEmbed, cor } = estados.enviandoMensagem.get(userId);
-    const canal = message.guild.channels.cache.get(canalId);
-    if (!canal) return message.reply('Canal inválido.');
-
-    const image = getImageURL();
-    if (usarEmbed) {
-      const embed = new EmbedBuilder()
-        .setDescription(message.content)
-        .setColor(cor || '#0099ff');
-      if (image) embed.setImage(image);
-      await canal.send({ embeds: [embed] });
-    } else {
-      if (image) {
-        await canal.send({ content: message.content, files: [image] });
-      } else {
-        await canal.send(message.content);
-      }
-    }
-    estados.enviandoMensagem.delete(userId);
-    return message.reply('Mensagem enviada.');
-  }
-
-  // Estado editando mensagem via /editarmensagem
-  if (estados.editandoMensagem.has(userId)) {
-    const { channelId, messageId, novaCor } = estados.editandoMensagem.get(userId);
-    const canal = message.guild.channels.cache.get(channelId);
-    if (!canal) return message.reply('Canal inválido.');
-
-    let targetMsg;
-    try {
-      targetMsg = await canal.messages.fetch(messageId);
-    } catch {
-      estados.editandoMensagem.delete(userId);
-      return message.reply('Mensagem não encontrada.');
-    }
-
-    const image = getImageURL();
-    // Tenta pegar a cor original do embed, se existir
-    let corOriginal = '#0099ff';
-    if (targetMsg.embeds?.[0]?.color) {
-      // O color do embed do discord.js v14 é decimal, precisa converter para hex
-      corOriginal = '#' + targetMsg.embeds[0].color.toString(16).padStart(6, '0');
-    }
-
-    const embed = new EmbedBuilder()
-      .setDescription(message.content)
-      .setColor(novaCor || corOriginal);
-    if (image) embed.setImage(image);
-
-    await targetMsg.edit({ embeds: [embed] });
-    estados.editandoMensagem.delete(userId);
-    return message.reply('Mensagem editada.');
-  }
-
-  // Comando !ajuda para qualquer membro listar comandos customizados
-  if (message.content.trim().toLowerCase().startsWith('!ajuda')) {
-    const args = message.content.trim().split(/\s+/);
-    // Descrições dos comandos
-    const descricoes = {
-      somartempo: 'Soma vários tempos no formato Celeste (ex: !somartempo 1:00:16.257 58:43.930 8:16.257).',
-      comparartempo: 'Subtrai dois tempos Celeste e mostra a diferença em tempo e frames (ex: !comparartempo 1:00:16.257 58:43.930).',
-      validartempo: 'Verifica se um tempo é válido (múltiplo de 0.017) e mostra os frames mais próximos (ex: !validartempo 1.700).',
-      regra: 'Mostra regras específicas do servidor.',
-    };
-
-    if (args.length === 2) {
-      const nomeCmd = args[1].toLowerCase();
-      if (descricoes[nomeCmd]) {
-        return message.reply(`**!${nomeCmd}**: ${descricoes[nomeCmd]}`);
-      } else {
-        return message.reply('❌ Comando não encontrado. Use !ajuda para ver a lista.');
-      }
-    }
-
-    const nomes = Object.keys(comandosCustomizados);
-    // Filtra comandos que NÃO são aliases
-    const nomesSemAlias = nomes.filter(n =>
-      !comandosCustomizados[n].aliases ||
-      !Array.isArray(comandosCustomizados[n].aliases) ||
-      comandosCustomizados[n].aliases.length === 0
-    );
-    // Filtra comandos que começam com "regra"
-    const comandosRegra = nomesSemAlias.filter(n => n.startsWith('regra'));
-    const outrosComandos = nomesSemAlias.filter(n => !n.startsWith('regra'));
-
-    let lista = '';
-    if (comandosRegra.length > 0) {
-      lista += '!regra X';
-      if (outrosComandos.length > 0) lista += ' // ';
-    }
-    lista += outrosComandos.map(n => `!${n}`).join(' // ');
-
-    // Adiciona comandos de tempo
-    const comandosTempo = ['!somartempo', '!comparartempo', '!validartempo'];
-    if (lista) lista += ' // ';
-    lista += comandosTempo.join(' // ');
-
-    return message.reply(`**Comandos disponíveis:**\n${lista}\n\nDigite \`!ajuda [comando]\` para ver a descrição de um comando.`);
-  }
-
-  // Executar comandos customizados (!nome)
-  if (message.content.startsWith('!')) {
-    let nome = message.content.slice(1).toLowerCase();
-    // Se for alias, pega o comando original
-    if (aliasesMap[nome]) nome = aliasesMap[nome];
-    const cmd = comandosCustomizados[nome];
-    if (cmd) {
-      if (cmd.embed) {
-        const embed = new EmbedBuilder()
-          .setDescription(cmd.mensagem)
-          .setColor(cmd.cor || '#0099ff');
-
-        // Se a mensagem for uma url direta e for imagem, exibe imagem no embed
-        if (cmd.mensagem?.startsWith('http') && !cmd.mensagem.includes(' ')) {
-          embed.setImage(cmd.mensagem);
+        // Usamos fs.access para checar se o arquivo existe de forma assíncrona
+        await fs.access(COMANDOS_PATH);
+        const data = await fs.readFile(COMANDOS_PATH, 'utf8');
+        comandosCustomizados = JSON.parse(data);
+        
+        // Recria o mapa de aliases
+        aliasesMap = {};
+        for (const nome in comandosCustomizados) {
+            const cmd = comandosCustomizados[nome];
+            if (cmd.aliases && Array.isArray(cmd.aliases)) {
+                for (const alias of cmd.aliases) {
+                    aliasesMap[alias] = nome;
+                }
+            }
         }
-        return message.channel.send({ embeds: [embed] });
-      } else {
-        return message.channel.send(cmd.mensagem);
-      }
-    }
-  }
-
-  // Funções utilitárias para tempo Celeste
-  function parseCelesteTime(str) {
-    // Aceita formatos: mm:ss.SSS, h:mm:ss.SSS, s.SSS, etc.
-    if (typeof str !== 'string' || !/^[0-9:.]+$/.test(str)) {
-        return null;
-    }
-    const parts = str.split(':');
-    let totalSeconds = 0;
-
-    try {
-        if (parts.length === 1) {
-            // Cobre formatos como "8.6" ou "12"
-            totalSeconds = parseFloat(parts[0]);
-        } else if (parts.length === 2) {
-            // Cobre formatos como "1:03" ou "4:35.123"
-            const minutes = parseInt(parts[0], 10);
-            const seconds = parseFloat(parts[1]);
-            totalSeconds = (minutes * 60) + seconds;
-        } else if (parts.length === 3) {
-            // Cobre formatos como "1:10:25.5"
-            const hours = parseInt(parts[0], 10);
-            const minutes = parseInt(parts[1], 10);
-            const seconds = parseFloat(parts[2]);
-            totalSeconds = (hours * 3600) + (minutes * 60) + seconds;
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            console.log('Arquivo comandos.json não encontrado, será criado um novo.');
         } else {
-            return null; // Formato inválido com mais de 2 separadores ':'
+            console.error('❌ Erro ao carregar ou parsear comandos.json:', error);
         }
-
-        // Retorna null se o resultado final não for um número válido.
-        return isNaN(totalSeconds) ? null : totalSeconds;
-
-    } catch (e) {
-        // Captura qualquer erro de parsing inesperado.
-        return null;
+        comandosCustomizados = {};
+        aliasesMap = {};
     }
-  }
-
-  function formatCelesteTime(seconds) {
-    const ms = Math.round((seconds % 1) * 1000);
-    const totalSeconds = Math.floor(seconds);
-    const s = totalSeconds % 60;
-    const m = Math.floor(totalSeconds / 60) % 60;
-    const h = Math.floor(totalSeconds / 3600);
-    let out = '';
-    if (h > 0) out += `${h}:`;
-    out += `${m.toString().padStart(2, '0')}:`;
-    out += `${s.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
-    return out;
-  }
-
-  function framesFromSeconds(seconds) {
-    return Math.round(seconds / 0.017);
-  }
-
-  function secondsFromFrames(frames) {
-    return frames * 0.017;
-  }
-
-  // Adiciona comandos !validartempo e !comparartempo
-  // !validartempo <tempo>
-  if (message.content.toLowerCase().startsWith('!validartempo ')) {
-    const arg = message.content.slice('!validartempo '.length).trim();
-    let tempo = parseCelesteTime(arg);
-    if (tempo === null) {
-      tempo = parseFloat(arg.replace(',', '.'));
-      if (isNaN(tempo)) {
-        return message.reply('❌ Tempo inválido. Use o formato mm:ss.SSS ou segundos com 3 casas decimais.');
-      }
-    }
-    const frames = tempo / 0.017;
-    const framesRounded = Math.round(frames);
-    const tempoFrame = framesRounded * 0.017;
-    if (Math.abs(tempo - tempoFrame) < 0.0005) {
-      return message.reply(`✅ Frame válido! (${framesRounded}f)`);
-    } else {
-      const lowerFrame = Math.floor(frames);
-      const upperFrame = Math.ceil(frames);
-      const lowerTime = (lowerFrame * 0.017).toFixed(3);
-      const upperTime = (upperFrame * 0.017).toFixed(3);
-      return message.reply(
-        `❌ Frame inválido!\nFrames mais próximos são:\n(-) ${lowerTime.padEnd(10)} (${lowerFrame}f)\n(+) ${upperTime.padEnd(10)} (${upperFrame}f)`
-      );
-    }
-  }
-
-  // !comparartempo <tempo1> <tempo2>
-  if (message.content.toLowerCase().startsWith('!comparartempo ')) {
-    const args = message.content.slice('!comparartempo '.length).trim().split(/\s+/);
-    if (args.length < 2) {
-      return message.reply('❌ Use: !comparartempo <tempo1> <tempo2>');
-    }
-    let t1 = parseCelesteTime(args[0]);
-    let t2 = parseCelesteTime(args[1]);
-    if (t1 === null) {
-      t1 = parseFloat(args[0].replace(',', '.'));
-    }
-    if (t2 === null) {
-      t2 = parseFloat(args[1].replace(',', '.'));
-    }
-    if (isNaN(t1) || isNaN(t2)) {
-      return message.reply('❌ Tempos inválidos. Use o formato mm:ss.SSS ou segundos com 3 casas decimais.');
-    }
-    const f1 = framesFromSeconds(t1);
-    const f2 = framesFromSeconds(t2);
-    const diffFrames = f1 - f2;
-    const diffSeconds = Math.abs(diffFrames) * 0.017;
-    const sign = diffFrames >= 0 ? '' : '-';
-    return message.reply(
-      `➡️ ${formatCelesteTime(t1)} (${f1}f)  - ${formatCelesteTime(t2)} (${f2}f) = ${sign}${formatCelesteTime(diffSeconds)} (${Math.abs(diffFrames)}f)`
-    );
-  }
-
-  // !somartempo <tempo1> <tempo2> ...
-  if (message.content.toLowerCase().startsWith('!somartempo ')) {
-    const args = message.content.slice('!somartempo '.length).trim().split(/\s+/);
-    if (args.length < 2) {
-      return message.reply('❌ Use: !somartempo <tempo1> <tempo2> ...');
-    }
-    let total = 0;
-    let partesFormatadas = [];
-    for (const arg of args) {
-      let t = parseCelesteTime(arg);
-      if (t === null) {
-        t = parseFloat(arg.replace(',', '.'));
-      }
-      if (isNaN(t)) {
-        return message.reply(`❌ Tempo inválido. Use o formato hh:mm:ss.SSS`);
-      }
-      total += t;
-      partesFormatadas.push(`${formatCelesteTime(t)} (${framesFromSeconds(t)}f)`);
-    }
-    return message.reply(
-      `+ ${partesFormatadas.join(' + ')} = ${formatCelesteTime(total)} (${framesFromSeconds(total)}f)`
-    );
-  }
-});
-
-client.on(Events.InteractionCreate, async interaction => {
-  if (!interaction.isChatInputCommand()) return;
-
-  const userId = interaction.user.id;
-  const cmdName = interaction.commandName;
-
-  if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-    return interaction.reply({ content: 'Apenas administradores podem usar esse comando.', ephemeral: true });
-  }
-
-  if (cmdName === 'comando') {
-    const sub = interaction.options.getSubcommand();
-    const nome = interaction.options.getString('nome').toLowerCase();
-
-    // Busca o canal de log
-    const logChannel = interaction.guild.channels.cache.get('1382731931883405424');
-
-    // Função para enviar embed de log
-    async function logComandoEmbed(acao) {
-      if (logChannel && logChannel.isTextBased()) {
-        const embed = new EmbedBuilder()
-          .setTitle(`Comando ${acao}`)
-          .addFields(
-            { name: 'Comando', value: `!${nome}` },
-            { name: 'Usuário', value: `${interaction.user.tag} (<@${interaction.user.id}>)` }
-          )
-          .setColor(acao === 'criado' ? '#43b581' : acao === 'editado' ? '#faa61a' : '#f04747')
-          .setTimestamp();
-        await logChannel.send({ embeds: [embed] });
-      }
-    }
-
-    if (sub === 'criar') {
-      const usarEmbed = interaction.options.getBoolean('usar_embed');
-      let cor = interaction.options.getString('cor');
-      cor = cor?.startsWith('#') ? cor : cor ? '#' + cor : '#0099ff';
-
-      if (comandosCustomizados[nome]) {
-        return interaction.reply({ content: '❌ Comando já existe.' });
-      }
-
-      estados.criandoComando.set(userId, { nome, usarEmbed, cor });
-      interaction.reply({ content: `✅ Envie agora a mensagem para o comando \`!${nome}\`. Você pode anexar uma imagem.` });
-
-      await logComandoEmbed('criado');
-      return;
-    }
-
-    if (sub === 'editar') {
-      const existente = comandosCustomizados[nome];
-      if (!existente) return interaction.reply({ content: '❌ Comando não existe.' });
-
-      let novaCor = interaction.options.getString('cor');
-      if (novaCor) {
-        novaCor = novaCor.startsWith('#') ? novaCor : '#' + novaCor;
-        comandosCustomizados[nome].cor = novaCor;
-        salvarComandos();
-      }
-
-      estados.editandoComando.set(userId, { nome, etapa: 'mensagem' });
-      interaction.reply({
-        content: `✏️ Envie agora a nova mensagem para \`!${nome}\`. Você pode anexar uma imagem.${novaCor ? `\nCor do embed atualizada para ${novaCor}.` : ''}`
-      });
-
-      await logComandoEmbed('editado');
-      return;
-    }
-
-    if (sub === 'deletar') {
-      if (!comandosCustomizados[nome]) {
-        return interaction.reply({ content: '❌ Comando não existe.' });
-      }
-
-      delete comandosCustomizados[nome];
-      salvarComandos();
-      interaction.reply({ content: `✅ Comando \`!${nome}\` deletado com sucesso.` });
-
-      await logComandoEmbed('deletado');
-      return;
-    }
-  }
-
-  if (cmdName === 'help') {
-    const comandos = [
-      '/comando criar',
-      '/comando editar',
-      '/comando deletar',
-      '/mensagem',
-      '/editarmensagem',
-      '/dm',
-      '/help'
-    ];
-    return interaction.reply({
-      content: `📋 Comandos disponíveis:\n${comandos.map(c => `• ${c}`).join('\n')}`,
-      ephemeral: true
-    });
-  }
-
-  if (cmdName === 'mensagem') {
-    const canal = interaction.options.getChannel('canal');
-    const usarEmbed = interaction.options.getBoolean('usar_embed');
-    let cor = interaction.options.getString('cor');
-    cor = cor?.startsWith('#') ? cor : cor ? '#' + cor : '#0099ff';
-    estados.enviandoMensagem.set(userId, { canalId: canal.id, usarEmbed, cor });
-    return interaction.reply({ content: `✅ Envie agora a mensagem para o canal ${canal}.`, ephemeral: true });
-  }
-
-  if (cmdName === 'editarmensagem') {
-    const link = interaction.options.getString('link');
-    let novaCor = interaction.options.getString('cor');
-    novaCor = novaCor?.startsWith('#') ? novaCor : novaCor ? '#' + novaCor : null;
-
-    const partes = link.split('/');
-    if (partes.length < 7) return interaction.reply({ content: '❌ Link inválido.', ephemeral: true });
-
-    const [guildIdLink, channelId, messageId] = partes.slice(5, 8);
-    if (guildIdLink !== guildId) return interaction.reply({ content: '❌ Esta mensagem não pertence ao servidor.', ephemeral: true });
-
-    estados.editandoMensagem.set(userId, { channelId, messageId, novaCor });
-    return interaction.reply({ content: `✅ Envie agora o novo conteúdo para a mensagem.`, ephemeral: true });
-  }
-
-  if (cmdName === 'dm') {
-    const usuarios = interaction.options.getString('usuarios');
-    const mensagem = interaction.options.getString('mensagem');
-
-    const ids = usuarios.split(/[\s,]+/);
-    for (const id of ids) {
-      try {
-        const user = await client.users.fetch(id);
-        await user.send(mensagem);
-      } catch (err) {
-        console.error(`Erro ao enviar DM para ${id}:`, err);
-      }
-    }
-    return interaction.reply({ content: `✅ Mensagem enviada para ${ids.length} usuário(s).`, ephemeral: true });
-  }
-
-  // Gerenciar subcomandos de aliases
-  if (cmdName === 'subcomando') {
-    const sub = interaction.options.getSubcommand();
-    const comando = interaction.options.getString('comando').toLowerCase();
-    const alias = interaction.options.getString('alias')?.toLowerCase();
-
-    if (sub === 'adicionar') {
-      if (!comandosCustomizados[comando]) {
-        return interaction.reply({ content: '❌ Comando principal não existe.', ephemeral: true });
-      }
-
-      if (!alias) {
-        return interaction.reply({ content: '❌ Alias inválido.', ephemeral: true });
-      }
-
-      // Adiciona o alias ao comando principal
-      if (!comandosCustomizados[comando].aliases) {
-        comandosCustomizados[comando].aliases = [];
-      }
-      comandosCustomizados[comando].aliases.push(alias);
-      salvarComandos();
-
-      // Atualiza o aliasesMap
-      aliasesMap[alias] = comando;
-
-      return interaction.reply({ content: `✅ Alias \`${alias}\` adicionado ao comando \`!${comando}\`.`, ephemeral: true });
-    }
-
-    if (sub === 'remover') {
-      if (!comandosCustomizados[comando]) {
-        return interaction.reply({ content: '❌ Comando principal não existe.', ephemeral: true });
-      }
-
-      if (!alias || !comandosCustomizados[comando].aliases?.includes(alias)) {
-        return interaction.reply({ content: '❌ Alias não encontrado.', ephemeral: true });
-      }
-
-      // Remove o alias do comando principal
-      comandosCustomizados[comando].aliases = comandosCustomizados[comando].aliases.filter(a => a !== alias);
-      salvarComandos();
-
-      // Atualiza o aliasesMap
-      delete aliasesMap[alias];
-
-      return interaction.reply({ content: `✅ Alias \`${alias}\` removido do comando \`!${comando}\`.`, ephemeral: true });
-    }
-  }
-});
-
-const cargoKickId = '1401330736442638497'; // ID do cargo proibido
-const logChannelId = '1382731931883405424'; // ID do canal de log
-
-
-
-async function kickarMembro(membro, motivo) {
-  try {
-    await membro.kick(motivo);
-
-    const logChannel = membro.guild.channels.cache.get(logChannelId);
-
-    if (logChannel?.isTextBased()) {
-      const embed = new EmbedBuilder()
-        .setTitle('🚫 Membro kickado por cargo proibido')
-        .setColor('#f04747')
-        .addFields(
-          { name: 'Usuário', value: `${membro.user.tag} (<@${membro.user.id}>)` },
-          { name: 'ID', value: membro.user.id, inline: true },
-          { name: 'Entrou no servidor', value: `<t:${Math.floor(membro.joinedTimestamp / 1000)}:F>`, inline: true },
-          { name: 'Motivo', value: motivo }
-        )
-
-        .setThumbnail(membro.user.displayAvatarURL())
-        .setTimestamp();
-
-      await logChannel.send({ embeds: [embed] });
-    }
-
-  } catch (err) {
-    console.error(`Erro ao kickar ${membro.user.tag}:`, err);
-  }
-
 }
 
+async function salvarComandos() {
+    try {
+        await fs.writeFile(COMANDOS_PATH, JSON.stringify(comandosCustomizados, null, 2));
+    } catch (error) {
+        console.error('❌ Erro ao salvar comandos.json:', error);
+    }
+}
 
+// ================================================================= //
+//                     REGISTRO DE SLASH COMMANDS                    //
+// ================================================================= //
+async function registrarSlashCommands() {
+    console.log('🔄 Registrando slash commands...');
+    const comandos = [
+        new SlashCommandBuilder()
+            .setName('comando')
+            .setDescription('Gerencia comandos personalizados')
+            .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+            .addSubcommand(sub =>
+                sub.setName('criar')
+                    .setDescription('Cria um comando personalizado')
+                    .addStringOption(opt => opt.setName('nome').setDescription('Nome do comando').setRequired(true))
+                    .addBooleanOption(opt => opt.setName('usar_embed').setDescription('Usar embed?').setRequired(true))
+                    .addStringOption(opt => opt.setName('cor').setDescription('Cor do embed (hex)').setRequired(false))
+            )
+            .addSubcommand(sub =>
+                sub.setName('editar')
+                    .setDescription('Edita um comando personalizado')
+                    .addStringOption(opt => opt.setName('nome').setDescription('Nome do comando').setRequired(true))
+                    .addStringOption(opt => opt.setName('cor').setDescription('Nova cor do embed (hex)').setRequired(false))
+            )
+            .addSubcommand(sub =>
+                sub.setName('deletar')
+                    .setDescription('Deleta um comando personalizado')
+                    .addStringOption(opt => opt.setName('nome').setDescription('Nome do comando').setRequired(true))
+            ),
+        new SlashCommandBuilder()
+            .setName('mensagem')
+            .setDescription('Envia mensagem do bot')
+            .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+            .addChannelOption(opt => opt.setName('canal').setDescription('Canal').setRequired(true).addChannelTypes(ChannelType.GuildText))
+            .addBooleanOption(opt => opt.setName('usar_embed').setDescription('Enviar como embed?').setRequired(true))
+            .addStringOption(opt => opt.setName('cor').setDescription('Cor do embed (hex)').setRequired(false)),
+        new SlashCommandBuilder()
+            .setName('editarmensagem')
+            .setDescription('Edita mensagem enviada pelo bot')
+            .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+            .addStringOption(opt => opt.setName('link').setDescription('Link da mensagem').setRequired(true))
+            .addStringOption(opt => opt.setName('cor').setDescription('Nova cor do embed (hex)').setRequired(false)),
+        new SlashCommandBuilder()
+            .setName('help')
+            .setDescription('Lista os comandos de barra disponíveis (admin)')
+            .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+        new SlashCommandBuilder()
+            .setName('dm')
+            .setDescription('Envia uma DM para um ou mais usuários')
+            .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+            .addStringOption(opt => opt.setName('usuarios').setDescription('IDs ou menções dos usuários (separados por espaço)').setRequired(true))
+            .addStringOption(opt => opt.setName('mensagem').setDescription('Mensagem para enviar').setRequired(true)),
+        new SlashCommandBuilder()
+            .setName('subcomando')
+            .setDescription('Gerencia aliases (apelidos) de comandos')
+            .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+            .addSubcommand(sub =>
+                sub.setName('adicionar')
+                    .setDescription('Adiciona um alias para um comando existente')
+                    .addStringOption(opt => opt.setName('comando').setDescription('Comando principal').setRequired(true))
+                    .addStringOption(opt => opt.setName('alias').setDescription('Novo alias').setRequired(true))
+            )
+            .addSubcommand(sub =>
+                sub.setName('remover')
+                    .setDescription('Remove um alias de um comando')
+                    .addStringOption(opt => opt.setName('alias').setDescription('Alias para remover').setRequired(true))
+            ),
+    ];
 
-// Caso 1: membro entra já com o cargo proibido
+    const rest = new REST({ version: '10' }).setToken(token);
+    try {
+        await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
+            body: comandos.map(c => c.toJSON())
+        });
+        console.log('✅ Slash commands registrados com sucesso.');
+    } catch (error) {
+        console.error('❌ Falha ao registrar slash commands:', error);
+    }
+}
 
-client.on('guildMemberAdd', async (member) => {
-  if (member.roles.cache.has(cargoKickId)) {
-    await kickarMembro(member, 'Entrou com cargo proibido');
-  }
+// ================================================================= //
+//                         FUNÇÕES UTILITÁRIAS                       //
+// ================================================================= //
+function formatarCor(corInput) {
+    if (!corInput) return DEFAULT_EMBED_COLOR;
+    const corLimpa = corInput.startsWith('#') ? corInput.substring(1) : corInput;
+    if (/^[0-9A-F]{6}$/i.test(corLimpa)) {
+        return `#${corLimpa.toUpperCase()}`;
+    }
+    return DEFAULT_EMBED_COLOR;
+}
+
+async function getLogChannel() {
+    try {
+        const channel = await client.channels.fetch(LOG_CHANNEL_ID);
+        if (channel && channel.isTextBased()) return channel;
+    } catch (error) {
+        console.error(`⚠️ Canal de log com ID ${LOG_CHANNEL_ID} não encontrado.`);
+    }
+    return null;
+}
+
+// ================================================================= //
+//                           EVENTO: READY                           //
+// ================================================================= //
+client.once(Events.ClientReady, async () => {
+    console.log(`✅ Bot conectado como ${client.user.tag}`);
+    await carregarComandos();
+    await registrarSlashCommands();
+
+    try {
+        const guild = await client.guilds.fetch(guildId);
+        await guild.members.fetch();
+        console.log('✅ Membros do servidor carregados para cache.');
+    } catch (err) {
+        console.error('❌ Erro ao carregar membros do servidor:', err);
+    }
 });
 
+// ================================================================= //
+//                       EVENTO: MESSAGE CREATE                      //
+// ================================================================= //
+client.on(Events.MessageCreate, async message => {
+    if (message.author.bot) return;
 
+    if (message.channel.type === ChannelType.DM) {
+        const logChannel = await getLogChannel();
+        if (!logChannel) return;
 
-// Caso 2: membro recebe o cargo proibido depois de entrar
+        const embed = new EmbedBuilder()
+            .setTitle('Mensagem recebida em DM')
+            .setDescription(message.content || '*Sem texto*')
+            .setAuthor({ name: `${message.author.tag} (${message.author.id})`, iconURL: message.author.displayAvatarURL() })
+            .setColor(DEFAULT_EMBED_COLOR)
+            .setTimestamp();
+        if (message.attachments.first()?.url) {
+            embed.setImage(message.attachments.first().url);
+        }
+        try {
+            await logChannel.send({ embeds: [embed] });
+        } catch (err) {
+            console.error('❌ Erro ao enviar log de DM:', err);
+        }
+        return;
+    }
 
-client.on('guildMemberUpdate', async (oldMember, newMember) => {
-  // Loga no console quando um membro recebe qualquer cargo novo
-  const oldRoles = oldMember.roles.cache;
-  const newRoles = newMember.roles.cache;
-  const addedRoles = newRoles.filter(role => !oldRoles.has(role.id));
+    if (!message.guild) return;
+    
+    const userId = message.author.id;
+    const imageURL = message.attachments.first()?.url ?? null;
+    const conteudo = message.content.trim();
+    
+    // --- Lógica de Estados (Comandos Interativos) ---
+    if (estados.criandoComando.has(userId)) {
+        const { nome, usarEmbed, cor } = estados.criandoComando.get(userId);
+        if (!conteudo && !imageURL) return message.reply('Envie uma mensagem ou anexe uma imagem para o comando.');
+        
+        comandosCustomizados[nome] = { mensagem: conteudo || imageURL, embed: usarEmbed, cor };
+        await salvarComandos();
+        estados.criandoComando.delete(userId);
+        return message.reply(`Comando \`!${nome}\` criado.`);
+    }
+    if (estados.editandoComando.has(userId)) {
+        const { nome } = estados.editandoComando.get(userId);
+        if (!conteudo && !imageURL) return message.reply('Envie uma mensagem ou anexe uma imagem para o comando.');
 
-  if (addedRoles.size > 0) {
-    addedRoles.forEach(role => {
-      console.log(`Membro ${newMember.user.tag} (${newMember.user.id}) recebeu o cargo: ${role.name} (${role.id})`);
-    });
+        comandosCustomizados[nome].mensagem = conteudo || imageURL;
+        await salvarComandos();
+        estados.editandoComando.delete(userId);
+        return message.reply('Comando editado.');
+    }
+    if (estados.enviandoMensagem.has(userId)) {
+        const { canalId, usarEmbed, cor } = estados.enviandoMensagem.get(userId);
+        const canal = message.guild.channels.cache.get(canalId);
+        if (!canal) return message.reply('Canal inválido.');
 
-  }
+        if (usarEmbed) {
+            const embed = new EmbedBuilder().setDescription(conteudo).setColor(cor);
+            if (imageURL) embed.setImage(imageURL);
+            await canal.send({ embeds: [embed] });
+        } else {
+            await canal.send({ content: conteudo, files: imageURL ? [imageURL] : [] });
+        }
+        estados.enviandoMensagem.delete(userId);
+        return message.reply('Mensagem enviada.');
+    }
+    if (estados.editandoMensagem.has(userId)) {
+        const { channelId, messageId, novaCor } = estados.editandoMensagem.get(userId);
+        const canal = message.guild.channels.cache.get(channelId);
+        if (!canal) return message.reply('Canal inválido.');
 
+        try {
+            const targetMsg = await canal.messages.fetch(messageId);
+            const corOriginal = targetMsg.embeds?.[0]?.color ? '#' + targetMsg.embeds[0].color.toString(16).padStart(6, '0') : DEFAULT_EMBED_COLOR;
 
+            const embed = new EmbedBuilder().setDescription(conteudo).setColor(novaCor || corOriginal);
+            if (imageURL) embed.setImage(imageURL);
 
-  const tinhaAntes = oldRoles.has(cargoKickId);
-  const temAgora = newRoles.has(cargoKickId);
+            await targetMsg.edit({ content: '', embeds: [embed] });
+            estados.editandoMensagem.delete(userId);
+            return message.reply('Mensagem editada.');
+        } catch {
+            estados.editandoMensagem.delete(userId);
+            return message.reply('Mensagem não encontrada.');
+        }
+    }
 
+    // --- Lógica de Comandos com Prefixo `!` ---
+    if (conteudo.startsWith('!')) {
+        const args = conteudo.slice(1).trim().split(/\s+/);
+        const commandName = args.shift().toLowerCase();
+        
+        // Comandos Especiais (Hardcoded)
+        if (commandName === 'ajuda') {
+            const descricoes = {
+                somartempo: 'Soma vários tempos no formato Celeste (ex: !somartempo 1:00:16.257 58:43.930).',
+                comparartempo: 'Subtrai dois tempos Celeste (ex: !comparartempo 1:00:16.257 58:43.930).',
+                validartempo: 'Verifica se um tempo é um frame válido (ex: !validartempo 1.700).',
+                regra: 'Mostra regras específicas do servidor (ex: !regra 1).',
+            };
+            if (args.length > 0) {
+                const nomeCmd = args[0].toLowerCase();
+                if (descricoes[nomeCmd]) return message.reply(`**!${nomeCmd}**: ${descricoes[nomeCmd]}`);
+                return message.reply('❌ Comando não encontrado. Use !ajuda para ver a lista.');
+            }
+            const comandosRegra = Object.keys(comandosCustomizados).filter(n => n.startsWith('regra')).length > 0;
+            const outrosComandos = Object.keys(comandosCustomizados).filter(n => !n.startsWith('regra') && !comandosCustomizados[n].isAlias);
+            let lista = [];
+            if(comandosRegra) lista.push('!regra X');
+            lista.push(...outrosComandos.map(n => `!${n}`));
+            lista.push('!somartempo', '!comparartempo', '!validartempo');
+            
+            return message.reply(`**Comandos disponíveis:**\n${lista.join(' // ')}\n\nDigite \`!ajuda [comando]\` para mais detalhes.`);
+        }
+        else if (commandName === 'validartempo') {
+             if (args.length < 1) return message.reply('❌ Use: !validartempo <tempo>');
+             const tempo = parseCelesteTime(args[0]);
+             if (tempo === null) return message.reply('❌ Tempo inválido.');
+             
+             const frames = tempo / 0.017;
+             const framesRounded = Math.round(frames);
+             const tempoFrame = framesRounded * 0.017;
+             if (Math.abs(tempo - tempoFrame) < 0.0005) {
+                 return message.reply(`✅ Frame válido! (${framesRounded}f)`);
+             } else {
+                 const lowerTime = (Math.floor(frames) * 0.017).toFixed(3);
+                 const upperTime = (Math.ceil(frames) * 0.017).toFixed(3);
+                 return message.reply(`❌ Frame inválido!\nFrames mais próximos: \`-${lowerTime}\` e \`+${upperTime}\``);
+             }
+        }
+        else if (commandName === 'comparartempo') {
+             if (args.length < 2) return message.reply('❌ Use: !comparartempo <tempo1> <tempo2>');
+             const t1 = parseCelesteTime(args[0]);
+             const t2 = parseCelesteTime(args[1]);
+             if (t1 === null || t2 === null) return message.reply('❌ Um dos tempos é inválido.');
+             
+             const f1 = framesFromSeconds(t1);
+             const f2 = framesFromSeconds(t2);
+             const diffFrames = f1 - f2;
+             const diffSeconds = Math.abs(diffFrames) * 0.017;
+             const sign = diffFrames >= 0 ? '' : '-';
+             return message.reply(`➡️ ${formatCelesteTime(t1)} (${f1}f) - ${formatCelesteTime(t2)} (${f2}f) = ${sign}${formatCelesteTime(diffSeconds)} (${Math.abs(diffFrames)}f)`);
+        }
+        else if (commandName === 'somartempo') {
+            if (args.length < 2) return message.reply('❌ Use: !somartempo <tempo1> <tempo2> ...');
+            let total = 0;
+            for (const arg of args) {
+                const t = parseCelesteTime(arg);
+                if (t === null) return message.reply(`❌ Tempo inválido: \`${arg}\`.`);
+                total += t;
+            }
+            return message.reply(`A soma dos tempos é: **${formatCelesteTime(total)}** (${framesFromSeconds(total)}f)`);
+        }
+        // Comandos Customizados
+        else {
+            const fullCommandName = conteudo.slice(1).toLowerCase();
+            const nomeFinal = aliasesMap[fullCommandName] || fullCommandName;
+            const cmd = comandosCustomizados[nomeFinal];
 
+            if (cmd) {
+                if (cmd.embed) {
+                    const embed = new EmbedBuilder().setColor(cmd.cor || DEFAULT_EMBED_COLOR);
+                    // Checa se a mensagem é uma URL de imagem válida
+                    if (/\.(jpeg|jpg|gif|png)$/i.test(cmd.mensagem)) {
+                        embed.setImage(cmd.mensagem);
+                    } else {
+                        embed.setDescription(cmd.mensagem);
+                    }
+                    return message.channel.send({ embeds: [embed] });
+                } else {
+                    return message.channel.send(cmd.mensagem);
+                }
+            }
+        }
+    }
+    
+    // --- Lógica de Anti-Spam de Imagens ---
+    const imageAttachments = message.attachments.filter(att => att.contentType?.startsWith('image/'));
+    if (imageAttachments.size > 0) {
+        if (!userImageTracker.has(userId)) {
+            const timer = setTimeout(() => userImageTracker.delete(userId), TIME_WINDOW);
+            userImageTracker.set(userId, { count: 1, channels: new Set([message.channel.id]), timer });
+        } else {
+            const userData = userImageTracker.get(userId);
+            userData.count += imageAttachments.size; // Conta todas as imagens na mensagem
+            userData.channels.add(message.channel.id);
 
-  if (!tinhaAntes && temAgora) {
-    await kickarMembro(newMember, 'Recebeu cargo proibido');
-  }
+            if (userData.count >= IMAGE_THRESHOLD && userData.channels.size >= CHANNEL_THRESHOLD) {
+                clearTimeout(userData.timer);
+                userImageTracker.delete(userId);
 
+                if (message.member && message.member.bannable) {
+                    try {
+                        await message.member.ban({ reason: `Spam de imagens (${userData.count} em ${userData.channels.size} canais).` });
+                        console.log(`✅ Usuário ${message.author.tag} banido por spam.`);
+                        await sendLogSpam(message.member, userData, false);
+                    } catch (error) {
+                        console.error(`❌ Falha ao banir ${message.author.tag}:`, error);
+                    }
+                } else {
+                    console.log(`⚠️ Não foi possível banir ${message.author.tag} (permissões insuficientes).`);
+                    await sendLogSpam(message.member, userData, true);
+                }
+            }
+        }
+    }
 });
 
+// ================================================================= //
+//                     EVENTO: INTERACTION CREATE                    //
+// ================================================================= //
+client.on(Events.InteractionCreate, async interaction => {
+    if (!interaction.isChatInputCommand()) return;
+    if (!interaction.inGuild()) return;
+    if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+        return interaction.reply({ content: '❌ Apenas administradores podem usar esse comando.', ephemeral: false });
+    }
+
+    const { commandName, options, user, guild } = interaction;
+    const userId = user.id;
+
+    if (commandName === 'comando') {
+        const sub = options.getSubcommand();
+        const nome = options.getString('nome').toLowerCase();
+
+        if (sub === 'criar') {
+            if (comandosCustomizados[nome] || aliasesMap[nome]) {
+                return interaction.reply({ content: '❌ Um comando ou alias com esse nome já existe.', ephemeral: false });
+            }
+            const usarEmbed = options.getBoolean('usar_embed');
+            const cor = formatarCor(options.getString('cor'));
+            estados.criandoComando.set(userId, { nome, usarEmbed, cor });
+            return interaction.reply({ content: `✅ Envie agora o conteúdo para o comando \`!${nome}\`. Você pode anexar uma imagem.`, ephemeral: false });
+        }
+        if (sub === 'editar') {
+            if (!comandosCustomizados[nome]) {
+                return interaction.reply({ content: '❌ Comando não existe.', ephemeral: false });
+            }
+            const novaCor = options.getString('cor');
+            if (novaCor) {
+                comandosCustomizados[nome].cor = formatarCor(novaCor);
+                await salvarComandos();
+            }
+            estados.editandoComando.set(userId, { nome });
+            return interaction.reply({ content: `✏️ Envie agora o novo conteúdo para \`!${nome}\`.${novaCor ? `\nCor atualizada.` : ''}`, ephemeral: false });
+        }
+        if (sub === 'deletar') {
+            if (!comandosCustomizados[nome]) {
+                return interaction.reply({ content: '❌ Comando não existe.', ephemeral: false });
+            }
+            if (comandosCustomizados[nome].aliases) {
+                for (const alias of comandosCustomizados[nome].aliases) {
+                    delete aliasesMap[alias];
+                }
+            }
+            delete comandosCustomizados[nome];
+            await salvarComandos();
+            return interaction.reply({ content: `✅ Comando \`!${nome}\` deletado com sucesso.`, ephemeral: false });
+        }
+    }
+
+    if (commandName === 'subcomando') {
+        const sub = options.getSubcommand();
+        const alias = options.getString('alias').toLowerCase();
+
+        if (sub === 'adicionar') {
+            const comando = options.getString('comando').toLowerCase();
+            if (!comandosCustomizados[comando]) return interaction.reply({ content: '❌ Comando principal não existe.', ephemeral: false });
+            if (comandosCustomizados[alias] || aliasesMap[alias]) return interaction.reply({ content: '❌ Um comando ou alias com esse nome já existe.', ephemeral: false });
+            
+            comandosCustomizados[comando].aliases = comandosCustomizados[comando].aliases || [];
+            comandosCustomizados[comando].aliases.push(alias);
+            aliasesMap[alias] = comando;
+            await salvarComandos();
+            return interaction.reply({ content: `✅ Alias \`!${alias}\` adicionado para \`!${comando}\`.`, ephemeral: false });
+        }
+        if (sub === 'remover') {
+            const comandoOriginal = aliasesMap[alias];
+            if (!comandoOriginal || !comandosCustomizados[comandoOriginal]) return interaction.reply({ content: '❌ Alias não encontrado.', ephemeral: false });
+
+            comandosCustomizados[comandoOriginal].aliases = comandosCustomizados[comandoOriginal].aliases.filter(a => a !== alias);
+            delete aliasesMap[alias];
+            await salvarComandos();
+            return interaction.reply({ content: `✅ Alias \`!${alias}\` removido.`, ephemeral: false });
+        }
+    }
+
+    if (commandName === 'help') {
+        const commandList = [
+            '/comando criar', '/comando editar', '/comando deletar',
+            '/subcomando adicionar', '/subcomando remover',
+            '/mensagem', '/editarmensagem', '/dm', '/help'
+        ].map(c => `• ${c}`).join('\n');
+        return interaction.reply({ content: `📋 Comandos de admin:\n${commandList}`, ephemeral: false });
+    }
+
+    if (commandName === 'mensagem') {
+        const canal = options.getChannel('canal');
+        const usarEmbed = options.getBoolean('usar_embed');
+        const cor = formatarCor(options.getString('cor'));
+        estados.enviandoMensagem.set(userId, { canalId: canal.id, usarEmbed, cor });
+        return interaction.reply({ content: `✅ Envie agora a mensagem para o canal ${canal}.`, ephemeral: false });
+    }
+
+    if (commandName === 'editarmensagem') {
+        const link = options.getString('link');
+        const match = link.match(/channels\/(\d+)\/(\d+)\/(\d+)/);
+        if (!match || match[1] !== guild.id) return interaction.reply({ content: '❌ Link inválido ou de outro servidor.', ephemeral: false });
+        
+        const [, , channelId, messageId] = match;
+        const novaCor = options.getString('cor') ? formatarCor(options.getString('cor')) : null;
+        estados.editandoMensagem.set(userId, { channelId, messageId, novaCor });
+        return interaction.reply({ content: `✅ Envie agora o novo conteúdo para a mensagem.`, ephemeral: false });
+    }
+    
+    if (commandName === 'dm') {
+        const usuariosInput = options.getString('usuarios');
+        const mensagem = options.getString('mensagem');
+        const ids = usuariosInput.match(/\d{17,19}/g) || [];
+        let sucesso = 0;
+        let falha = 0;
+
+        for (const id of ids) {
+            try {
+                const targetUser = await client.users.fetch(id);
+                await targetUser.send(mensagem);
+                sucesso++;
+            } catch {
+                falha++;
+            }
+        }
+        return interaction.reply({ content: `✅ DM enviada para ${sucesso} usuário(s). Falha para ${falha}.`, ephemeral: false });
+    }
+});
+
+// ================================================================= //
+//                       EVENTOS DE MODERAÇÃO                        //
+// ================================================================= //
+async function kickarMembro(membro, motivo) {
+    if (!membro.kickable) {
+        console.error(`❌ Não foi possível kickar ${membro.user.tag} (permissões insuficientes).`);
+        return;
+    }
+    try {
+        await membro.kick(motivo);
+        console.log(`👟 Membro ${membro.user.tag} kickado.`);
+        const logChannel = await getLogChannel();
+        if (logChannel) {
+            const embed = new EmbedBuilder()
+                .setTitle('🚫 Membro Kickado')
+                .setColor('#f04747')
+                .setAuthor({ name: membro.user.tag, iconURL: membro.user.displayAvatarURL() })
+                .addFields(
+                    { name: 'Usuário', value: `${membro.user} (${membro.user.id})` },
+                    { name: 'Motivo', value: motivo }
+                )
+                .setTimestamp();
+            await logChannel.send({ embeds: [embed] });
+        }
+    } catch (err) {
+        console.error(`❌ Erro ao kickar ${membro.user.tag}:`, err);
+    }
+}
+
+client.on(Events.GuildMemberAdd, async (member) => {
+    if (member.roles.cache.has(CARGO_KICK_ID)) {
+        await kickarMembro(member, 'Entrou com cargo proibido');
+    }
+});
+
+client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
+    const tinhaAntes = oldMember.roles.cache.has(CARGO_KICK_ID);
+    const temAgora = newMember.roles.cache.has(CARGO_KICK_ID);
+    if (!tinhaAntes && temAgora) {
+        await kickarMembro(newMember, 'Recebeu cargo proibido');
+    }
+});
+
+async function sendLogSpam(member, userData, errorOccurred) {
+    const logChannel = await getLogChannel();
+    if (!logChannel) return;
+
+    const embed = new EmbedBuilder()
+        .setColor(0xFF0000)
+        .setAuthor({ name: member.user.tag, iconURL: member.user.displayAvatarURL() })
+        .setFooter({ text: `ID: ${member.id}` })
+        .setTimestamp();
+        
+    if(errorOccurred) {
+        embed.setTitle('Falha na Punição Automática')
+             .setDescription(`**Não foi possível banir:** ${member.user}`)
+             .addFields({ name: 'Motivo da Falha', value: 'Permissões insuficientes.' });
+    } else {
+        embed.setTitle('Punição Automática')
+             .setDescription(`**Usuário banido:** ${member.user}`)
+             .addFields(
+                { name: 'Motivo', value: 'Muitos anexos em pouco tempo', inline: true },
+                { name: 'Detalhes', value: `${userData.count} anexos em ${userData.channels.size} canais.`, inline: true }
+             );
+    }
+
+    try {
+        await logChannel.send({ embeds: [embed] });
+    } catch (error) {
+        console.error('Falha ao enviar a mensagem de log de spam:', error);
+    }
+}
+
+// ================================================================= //
+//                          INICIALIZAÇÃO                            //
+// ================================================================= //
 client.login(token);
