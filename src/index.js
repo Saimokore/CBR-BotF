@@ -47,9 +47,9 @@ const estados = {
 
 // Gerenciador de spam
 const userImageTracker = new Map();
-const TIME_WINDOW = 30 * 1000;
-const IMAGE_THRESHOLD = 3;
-const CHANNEL_THRESHOLD = 3;
+const TIME_WINDOW = 130 * 1000;
+const IMAGE_THRESHOLD = 2;
+const CHANNEL_THRESHOLD = 4;
 
 // Funções para carregar e salvar comandos
 async function carregarComandos() {
@@ -193,7 +193,7 @@ async function getLogChannel() {
 //                           EVENTO: READY                           //
 // ================================================================= //
 client.once(Events.ClientReady, async () => {
-    console.log(`✅ Bot conectado como ${client.user.tag}`);
+    console.log(`✅ Bot conectado como ${client.user.tag}, V0.10`);
     await carregarComandos();
     await registrarSlashCommands();
 
@@ -321,7 +321,7 @@ client.on(Events.MessageCreate, async message => {
             
             return message.reply(`**Comandos disponíveis:**\n${lista.join(' // ')}\n\nDigite \`!ajuda [comando]\` para mais detalhes.`);
         }
-        else if (commandName === 'validartempo') {
+        else if (commandName === 'validartempo' || commandName === 'validarframe') {
              if (args.length < 1) return message.reply('❌ Use: !validartempo <tempo>');
              const tempo = parseCelesteTime(args[0]);
              if (tempo === null) return message.reply('❌ Tempo inválido.');
@@ -332,9 +332,13 @@ client.on(Events.MessageCreate, async message => {
              if (Math.abs(tempo - tempoFrame) < 0.0005) {
                  return message.reply(`✅ Frame válido! (${framesRounded}f)`);
              } else {
-                 const lowerTime = (Math.floor(frames) * 0.017).toFixed(3);
-                 const upperTime = (Math.ceil(frames) * 0.017).toFixed(3);
-                 return message.reply(`❌ Frame inválido!\nFrames mais próximos: \`-${lowerTime}\` e \`+${upperTime}\``);
+                 let lowerTime = (Math.floor(frames) * 0.017);
+                 let upperTime = (Math.ceil(frames) * 0.017);
+
+                 const lowerTimeF = formatCelesteTime(lowerTime);
+                 const upperTimeF = formatCelesteTime(upperTime);
+
+                 return message.reply(`❌ Frame inválido!\nFrames mais próximos: \`-${lowerTimeF}\` e \`+${upperTimeF}\``);
              }
         }
         else if (commandName === 'comparartempo') {
@@ -384,31 +388,66 @@ client.on(Events.MessageCreate, async message => {
     }
     
     // --- Lógica de Anti-Spam de Imagens ---
-    const imageAttachments = message.attachments.filter(att => att.contentType?.startsWith('image/'));
+    const imageAttachments = message.attachments.filter(att => {
+        const isContentTypeImage = att.contentType?.startsWith('image/');
+        const nameOrUrl = (att.name || att.url || '').toLowerCase();
+        const isExtensionImage = /\.(png|jpe?g|gif|webp|bmp)$/i.test(nameOrUrl);
+        return isContentTypeImage || isExtensionImage;
+    });
     if (imageAttachments.size > 0) {
         if (!userImageTracker.has(userId)) {
             const timer = setTimeout(() => userImageTracker.delete(userId), TIME_WINDOW);
-            userImageTracker.set(userId, { count: 1, channels: new Set([message.channel.id]), timer });
+            // Conta todas as imagens da primeira mensagem corretamente
+            userImageTracker.set(userId, { count: imageAttachments.size, channels: new Set([message.channel.id]), timer });
         } else {
             const userData = userImageTracker.get(userId);
             userData.count += imageAttachments.size; // Conta todas as imagens na mensagem
             userData.channels.add(message.channel.id);
 
+            // Renova o timer para implementar janela deslizante
+            clearTimeout(userData.timer);
+            userData.timer = setTimeout(() => userImageTracker.delete(userId), TIME_WINDOW);
+
             if (userData.count >= IMAGE_THRESHOLD && userData.channels.size >= CHANNEL_THRESHOLD) {
                 clearTimeout(userData.timer);
                 userImageTracker.delete(userId);
 
-                if (message.member && message.member.bannable) {
+                const member = message.member;
+                if (member && member.bannable) {
                     try {
-                        await message.member.ban({ reason: `Spam de imagens (${userData.count} em ${userData.channels.size} canais).` });
+                        await member.ban({
+                            deleteMessageSeconds: 3600,
+                            reason: `Spam de imagens (${userData.count} em ${userData.channels.size} canais).`
+                        });
                         console.log(`✅ Usuário ${message.author.tag} banido por spam.`);
-                        await sendLogSpam(message.member, userData, false);
+
+                        try {
+                            await message.guild.bans.remove(userId, 'Fim do soft-ban (spam de imagens)');
+                            console.log(`✅ Usuário ${message.author.tag} desbanido (spam de imagens).`);
+                        } catch (err) {
+                            console.error('❌ Falha ao remover ban:', err);
+                        }
+
+                        await sendLogSpam(member, userData, false);
+
+                        try {
+                            const targetUser = await client.users.fetch(id);
+                            await targetUser.send(mensagem);
+                            sucesso++;
+                        } catch {
+                            falha++;
+                        }
+
+                        logChannel.send
                     } catch (error) {
                         console.error(`❌ Falha ao banir ${message.author.tag}:`, error);
+                        await sendLogSpam(member, userData, true);
                     }
                 } else {
                     console.log(`⚠️ Não foi possível banir ${message.author.tag} (permissões insuficientes).`);
-                    await sendLogSpam(message.member, userData, true);
+                    // Garante objeto compatível para sendLogSpam se member for undefined
+                    const pseudoMember = member || { user: message.author, id: message.author.id, displayAvatarURL: () => message.author.displayAvatarURL?.() };
+                    await sendLogSpam(pseudoMember, userData, true);
                 }
             }
         }
@@ -539,49 +578,6 @@ client.on(Events.InteractionCreate, async interaction => {
             }
         }
         return interaction.reply({ content: `✅ DM enviada para ${sucesso} usuário(s). Falha para ${falha}.`, ephemeral: false });
-    }
-});
-
-// ================================================================= //
-//                       EVENTOS DE MODERAÇÃO                        //
-// ================================================================= //
-async function kickarMembro(membro, motivo) {
-    if (!membro.kickable) {
-        console.error(`❌ Não foi possível kickar ${membro.user.tag} (permissões insuficientes).`);
-        return;
-    }
-    try {
-        await membro.kick(motivo);
-        console.log(`👟 Membro ${membro.user.tag} kickado.`);
-        const logChannel = await getLogChannel();
-        if (logChannel) {
-            const embed = new EmbedBuilder()
-                .setTitle('🚫 Membro Kickado')
-                .setColor('#f04747')
-                .setAuthor({ name: membro.user.tag, iconURL: membro.user.displayAvatarURL() })
-                .addFields(
-                    { name: 'Usuário', value: `${membro.user} (${membro.user.id})` },
-                    { name: 'Motivo', value: motivo }
-                )
-                .setTimestamp();
-            await logChannel.send({ embeds: [embed] });
-        }
-    } catch (err) {
-        console.error(`❌ Erro ao kickar ${membro.user.tag}:`, err);
-    }
-}
-
-client.on(Events.GuildMemberAdd, async (member) => {
-    if (member.roles.cache.has(CARGO_KICK_ID)) {
-        await kickarMembro(member, 'Entrou com cargo proibido');
-    }
-});
-
-client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
-    const tinhaAntes = oldMember.roles.cache.has(CARGO_KICK_ID);
-    const temAgora = newMember.roles.cache.has(CARGO_KICK_ID);
-    if (!tinhaAntes && temAgora) {
-        await kickarMembro(newMember, 'Recebeu cargo proibido');
     }
 });
 
